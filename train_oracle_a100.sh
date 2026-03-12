@@ -42,10 +42,6 @@ conda activate dinov2
 cd $SCRATCH
 mkdir -p logs
 
-# ── Pull latest training code ──────────────────────────────────────────────────
-echo "Pulling latest code from DinoModelsEXTRA..."
-git pull origin master
-echo ""
 
 # ── Info ──────────────────────────────────────────────────────────────────────
 echo "========================================================"
