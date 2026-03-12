@@ -30,6 +30,12 @@ echo ""
 nvidia-smi
 echo ""
 
+# ── Background GPU monitor (logs every 30s) ───────────────────────────────────
+nvidia-smi --query-gpu=timestamp,name,utilization.gpu,utilization.memory,memory.used,memory.free,temperature.gpu,power.draw \
+    --format=csv --loop=30 > logs/gpu_monitor_${SLURM_JOB_ID}.csv &
+GPU_MONITOR_PID=$!
+echo "GPU monitor running (PID $GPU_MONITOR_PID) → logs/gpu_monitor_${SLURM_JOB_ID}.csv"
+
 # ── Train ─────────────────────────────────────────────────────────────────────
 echo "=== Starting training ==="
 python train_efficientnet_b0.py \
@@ -38,6 +44,9 @@ python train_efficientnet_b0.py \
     --lr 1e-4 \
     --unfreeze-blocks 4 \
     --workers 16
+
+# ── Stop GPU monitor ──────────────────────────────────────────────────────────
+kill $GPU_MONITOR_PID 2>/dev/null || true
 
 # ── GPU stats after training ──────────────────────────────────────────────────
 echo ""
