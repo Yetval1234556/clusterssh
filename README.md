@@ -78,7 +78,8 @@ When creating the instance set the boot volume to **500GB+** — Oracle gives un
 
 ### 3. SSH in and set up
 ```bash
-ssh opc@<instance-ip>
+# Add your instance IP to monitor.sh first, then:
+./monitor.sh oracle connect
 
 # Clone repo
 git clone https://github.com/Yetval1234556/DinoModelsEXTRA bloomi
@@ -157,10 +158,10 @@ oci os object get \
 
 ## Requirements
 - OCI CLI installed (`pip install oci-cli`) — credentials are hardcoded in `setup.sh`
-- AWS CLI installed — S3 credentials are hardcoded in `setup.sh`
 - Conda with `dinov2` environment (created by `setup.sh`)
 - CUDA 11.7+
 - SLURM (UNC only)
+- tmux (Oracle only — usually pre-installed, or `sudo yum install -y tmux`)
 
 ## Notes
 - `DinoBloom-G.pth` pretrained weights (~4.4GB) must be present in the repo directory before training
