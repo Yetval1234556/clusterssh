@@ -34,6 +34,11 @@ SCRATCH=/scratch/$USER/bloomi
 cd $SCRATCH
 mkdir -p logs output
 
+# ── Pull latest training code ──────────────────────────────────────────────────
+echo "Pulling latest code from DinoModelsEXTRA..."
+git pull origin master
+echo ""
+
 # ── Info ──────────────────────────────────────────────────────────────────────
 echo "========================================================"
 echo "  DinoBloom-G Fine-Tuning — UNC H200 Cluster"
