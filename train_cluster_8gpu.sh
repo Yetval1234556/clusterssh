@@ -34,3 +34,14 @@ torchrun --nproc_per_node=8 train_efficientnet_b0_ddp.py \
     --workers 16
 
 echo "=== Done: $(date) ==="
+
+# ── Upload model to Oracle Object Storage ─────────────────────────────────────
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+ORACLE_ENDPOINT="https://idcsxwupyymi.compat.objectstorage.us-ashburn-1.oraclecloud.com"
+DEST="s3://bloomi-training-data/trained-models/dinobloom_g_leukemia_classifier_${TIMESTAMP}.pth"
+
+echo "=== Uploading model to Oracle Object Storage ==="
+aws s3 cp $SCRATCH/dinobloom_g_finetuned.pth "$DEST" \
+    --endpoint-url $ORACLE_ENDPOINT
+
+echo "=== Model uploaded to: $DEST ==="
