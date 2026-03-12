@@ -3,6 +3,8 @@
 Scripts for running DinoBloom-G leukemia classifier training on remote GPU servers.
 Works on **Mac** (`.sh`) and **Windows** (`.bat`).
 
+Cluster: `rpatel1@ncshare.login.org`
+
 Supports two environments:
 - **UNC H200 cluster** — 8x H200 GPUs, managed by SLURM job scheduler
 - **Oracle A100 VM** — 1-2x A100 GPUs, runs directly (no job scheduler)
@@ -27,23 +29,21 @@ Before running anything on the cluster, copy the scripts over from your local ma
 
 **Mac / Linux:**
 ```bash
-scp setup.sh train_unc_h200.sh train_oracle_a100.sh YOUR_USER@YOUR_CLUSTER.unc.edu:~/
+scp setup.sh train_unc_h200.sh train_oracle_a100.sh rpatel1@ncshare.login.org:~/
 
 # Also copy your OCI API key (needed for dataset download):
-scp ~/.oci/oci_api_key.pem YOUR_USER@YOUR_CLUSTER.unc.edu:~/.oci/oci_api_key.pem
+scp ~/.oci/oci_api_key.pem rpatel1@ncshare.login.org:~/.oci/oci_api_key.pem
 ```
 
 **Windows (Command Prompt):**
 ```cmd
-scp setup.sh train_unc_h200.sh train_oracle_a100.sh YOUR_USER@YOUR_CLUSTER.unc.edu:/home/YOUR_USER/
+scp setup.sh train_unc_h200.sh train_oracle_a100.sh rpatel1@ncshare.login.org:/home/rpatel1/
 
 rem Also copy your OCI API key:
-scp %USERPROFILE%\.oci\oci_api_key.pem YOUR_USER@YOUR_CLUSTER.unc.edu:/home/YOUR_USER/.oci/oci_api_key.pem
+scp %USERPROFILE%\.oci\oci_api_key.pem rpatel1@ncshare.login.org:/home/rpatel1/.oci/oci_api_key.pem
 ```
 
-> **Note:** Replace `YOUR_USER` with your ONYEN and `YOUR_CLUSTER.unc.edu` with the actual cluster hostname. For Oracle, replace `YOUR_ORACLE_INSTANCE_IP` with the VM's public IP.
-
-Also update the config block at the top of `monitor.sh` / `monitor.bat` with your hostname and IP before using them.
+> For Oracle, update `ORACLE_HOST` in `monitor.sh` / `monitor.bat` with your VM's public IP.
 
 ---
 
@@ -53,7 +53,7 @@ Also update the config block at the top of `monitor.sh` / `monitor.bat` with you
 
 **Step 1 — Run setup on the cluster (first time only):**
 ```bash
-ssh YOUR_USER@YOUR_CLUSTER.unc.edu
+ssh rpatel1@ncshare.login.org
 bash ~/setup.sh
 ```
 
