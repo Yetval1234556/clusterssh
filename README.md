@@ -1,91 +1,144 @@
 # Cluster SSH — DinoBloom-G Training Setup
 
-Scripts for connecting to a university HPC cluster and launching DinoBloom-G leukemia classifier training using SLURM.
+Scripts for connecting to GPU infrastructure and launching DinoBloom-G leukemia classifier fine-tuning. Supports two environments: UNC H200 cluster (SLURM) and Oracle Cloud A100 VM.
 
 ## Files
 
 | File | Description |
 |------|-------------|
-| `connect.bat` | Windows batch file to SSH into the cluster |
-| `setup.sh` | One-time setup script — pulls data, clones repo, submits job |
-| `train_cluster_1gpu.sh` | SLURM job script — single GPU, standard training |
-| `train_cluster_8gpu.sh` | SLURM job script — 8 GPUs with torchrun + DDP (faster) |
+| `connect.bat` | Windows batch file to SSH into the UNC cluster |
+| `setup.sh` | One-time setup — pulls data, clones repo, sets up conda |
+| `train_unc_h200.sh` | SLURM job for UNC H200 cluster (2x H200, 96GB VRAM each) |
+| `train_oracle_a100.sh` | Direct training script for Oracle A100 VM (80GB VRAM) |
+| `watch_training.sh` | Live training monitor — metrics, GPU stats, logs |
 
-The multi-GPU script requires `train_efficientnet_b0_ddp.py` from the [DinoModelsEXTRA](https://github.com/Yetval1234556/DinoModelsEXTRA) repo.
+Multi-GPU training requires `train_efficientnet_b0_ddp.py` from [DinoModelsEXTRA](https://github.com/Yetval1234556/DinoModelsEXTRA).
 
-## Quick Start
+---
 
-### 1. Connect to the cluster
-Edit `connect.bat` and replace `YOUR_CLUSTER.unc.edu` with your cluster address, then double-click.
+## UNC H200 Cluster
 
-### 2. Run setup on the cluster
+### 1. Connect
+Edit `connect.bat`, replace `YOUR_CLUSTER.unc.edu` with your cluster address, double-click to SSH in.
+
+### 2. One-time setup
 ```bash
+# Copy your OCI API key first
+scp ~/.oci/oci_api_key.pem YOUR_CLUSTER.unc.edu:~/.oci/oci_api_key.pem
+
+# Then on the cluster:
 bash setup.sh
 ```
 This will:
-- Configure Oracle Object Storage credentials
+- Configure OCI CLI and Oracle S3 credentials
 - Clone the DinoModelsEXTRA repo to scratch storage
 - Download the 10GB dataset from Oracle Object Storage
 - Set up the `dinov2` conda environment
-- Submit the training job
 
-### 3. Choose your training mode
-
-**Single GPU** — simpler, uses `train_efficientnet_b0.py`:
+### 3. Submit training job
 ```bash
-sbatch train_cluster_1gpu.sh
+# 2x H200 (recommended — effective batch size 128)
+sbatch train_unc_h200.sh
+
+# Single H200
+sbatch train_unc_h200.sh 1
 ```
 
-**8 GPUs (recommended)** — uses `train_efficientnet_b0_ddp.py` with torchrun + DistributedDataParallel:
-```bash
-sbatch train_cluster_8gpu.sh
-```
-Effective batch size with 8 GPUs = 8 (per GPU) × 8 (GPUs) = **64** — significantly faster per epoch.
-
-### 4. Monitor your job
+### 4. Monitor
 ```bash
 squeue -u $USER
-tail -f logs/run_<job_id>.txt
+bash watch_training.sh <job_id>
 ```
 
-## Cluster Specs (configured for)
+### Cluster Specs
 | Setting | Value |
 |---------|-------|
+| GPUs | 2x NVIDIA H200 (96GB VRAM each) |
 | Partition | `gpu_p` |
-| QOS | `gpu_reservation` |
-| Reservation | `test_supergpu05` |
+| Constraint | `h200` |
+| CPUs | 28 |
+| RAM | 240GB |
 | Max time | 96 hours |
-| CPUs (8-GPU job) | 126 |
-| RAM (8-GPU job) | 1800 GB |
+| Batch size | 64 per GPU (128 effective with 2 GPUs) |
+| Epochs | 75 |
 
-## Requirements
-- AWS CLI on the cluster (`aws --version`)
-- Conda (`module load conda` or available in `$HOME/.bashrc`)
-- CUDA 11.7+
-- SLURM scheduler
+---
+
+## Oracle A100 VM
+
+### 1. Spin up instance
+Oracle Console → Compute → Instances → Create Instance → Shape: `VM.GPU.A100.1`
+
+### 2. SSH in and set up
+```bash
+ssh opc@<instance-ip>
+
+# Clone repo
+git clone https://github.com/Yetval1234556/DinoModelsEXTRA bloomi
+cd bloomi
+
+# Pull dataset from Oracle Object Storage
+aws s3 cp s3://bloomi-training-data/extracted/ "New Data/extracted/" \
+  --recursive \
+  --endpoint-url https://idcsxwupyymi.compat.objectstorage.us-ashburn-1.oraclecloud.com
+
+# Set up conda
+conda env create -f conda.yaml -n dinov2
+conda activate dinov2
+```
+
+### 3. Run training
+```bash
+# Single A100 80GB
+bash train_oracle_a100.sh 1
+
+# 2x A100 (if using VM.GPU.A100.2)
+bash train_oracle_a100.sh 2
+```
+
+### Oracle Specs
+| Setting | Value |
+|---------|-------|
+| GPU | 1x NVIDIA A100 (80GB VRAM) |
+| Batch size | 64 per GPU |
+| Epochs | 75 |
+| Est. time | ~25-30 hours |
+| Est. cost | ~$75-90 of $300 credits |
+
+---
 
 ## Retrieving the Trained Model
 
-After training completes, the model is **automatically uploaded** to Oracle Object Storage:
+After training completes the model is **automatically uploaded** to Oracle Object Storage:
 
 ```
-bloomi-training-data/trained-models/dinobloom_g_leukemia_classifier_YYYYMMDD_HHMMSS.pth
+bloomi-training-data/trained-models/dinobloom_g_h200_YYYYMMDD_HHMMSS.pth   ← UNC run
+bloomi-training-data/trained-models/dinobloom_g_a100_YYYYMMDD_HHMMSS.pth   ← Oracle run
 ```
 
-- The `trained-models/` prefix acts as a folder inside the `bloomi-training-data` bucket
-- Each run gets a unique timestamp so nothing is ever overwritten
-- Browse it in the [Oracle Cloud Console](https://cloud.oracle.com) → Object Storage → `bloomi-training-data` → `trained-models/`
+- Each run gets a unique timestamp — nothing is ever overwritten
+- Browse in [Oracle Cloud Console](https://cloud.oracle.com) → Object Storage → `bloomi-training-data` → `trained-models/`
 
-To download to your PC after training:
+Download to your PC:
 ```bash
 oci os object get \
   --namespace idcsxwupyymi \
   --bucket-name bloomi-training-data \
   --name "trained-models/<filename>.pth" \
-  --file "C:\Users\19802\Downloads\bloomi extra\dinobloom_g_leukemia_classifier.pth"
+  --file "C:\Users\19802\Downloads\bloomi extra\dinobloom_g_finetuned.pth"
 ```
 
+---
+
+## Requirements
+- OCI CLI configured (`~/.oci/config` + `~/.oci/oci_api_key.pem`)
+- AWS CLI for dataset download (S3-compatible)
+- Conda with `dinov2` environment
+- CUDA 11.7+
+- SLURM (UNC only)
+
 ## Notes
-- DinoBloom-G pretrained weights (`DinoBloom-G.pth`, ~4.4GB) must be added to setup.sh — see the placeholder in step 4
-- Dataset is pulled from Oracle Object Storage (`bloomi-training-data` bucket, namespace `idcsxwupyymi`)
-- Training saves best model to `dinobloom_g_finetuned.pth` and per-epoch backups to `backup/`
+- `DinoBloom-G.pth` pretrained weights (~4.4GB) must be present in the repo directory before training
+- Dataset is stored in Oracle Object Storage bucket `bloomi-training-data`
+- Training metrics saved to `training_metrics.csv` every epoch
+- GPU stats logged every 30s to `logs/gpu_monitor_<id>.csv`
