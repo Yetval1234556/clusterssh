@@ -12,10 +12,12 @@ Supports two environments:
 
 | File | What it does |
 |------|-------------|
-| `monitor.sh` | Run from your Mac — shows live GPU stats and training progress. Auto-reconnects if your internet drops. (`./monitor.sh unc connect` / `./monitor.sh oracle connect` opens a plain SSH session instead.) |
-| `setup.sh` | Run once on the cluster — downloads the dataset, model weights, and sets up the conda environment. |
-| `train_unc_h200.sh` | Submits a training job to the UNC SLURM scheduler. |
-| `train_oracle_a100.sh` | Starts training on the Oracle VM inside a tmux session (keeps running if your Mac disconnects). |
+| `monitor.sh` | Run from your Mac — live GPU stats and training progress. Auto-reconnects if internet drops. (`unc connect` / `oracle connect` for plain SSH.) |
+| `setup.sh` | Run once on the cluster — downloads dataset, model weights, sets up conda. |
+| `train_unc_h200.sh` | Submits training job to UNC SLURM scheduler. |
+| `train_oracle_a100.sh` | Starts training on Oracle VM inside tmux (keeps running if Mac disconnects). |
+| `train_efficientnet_b0.py` | Single-GPU training script — saves `best.pth` and `last.pth` to Oracle bucket each epoch. |
+| `train_efficientnet_b0_ddp.py` | Multi-GPU DDP training script — same save logic, launched via torchrun. |
 
 ---
 
@@ -68,11 +70,11 @@ tmux attach -t dinobloom
 
 ---
 
-## Getting the Trained Model
+## Trained Models
 
-Every epoch, two files are saved to Oracle Object Storage:
+Every epoch, two files are automatically saved to Oracle Object Storage:
 - `best.pth` — best test accuracy so far (use this to deploy)
-- `last.pth` — latest checkpoint (use this to resume if training is interrupted)
+- `last.pth` — full checkpoint every epoch including optimizer state (use this to resume)
 
 Bucket layout:
 ```
@@ -88,16 +90,16 @@ bloomi-training-data/
         last.pth
 ```
 
-Download to your Mac:
+Download to your Mac when done:
 ```bash
-# Best model (UNC run)
+# UNC run
 oci os object get \
   --namespace idcsxwupyymi \
   --bucket-name bloomi-training-data \
   --name "trained-models/unc-h200/job<ID>_<date>/best.pth" \
   --file ~/Downloads/dinobloom_best.pth
 
-# Best model (Oracle run)
+# Oracle run
 oci os object get \
   --namespace idcsxwupyymi \
   --bucket-name bloomi-training-data \
@@ -111,7 +113,7 @@ Browse all runs at [Oracle Cloud Console](https://cloud.oracle.com) → Object S
 
 ## Requirements
 
-- **OCI CLI** on your Mac and on the cluster (`pip install oci-cli`) — credentials are hardcoded in `setup.sh`, no manual key setup needed
+- **OCI CLI** on your Mac and on the cluster (`pip install oci-cli`) — credentials are hardcoded, no manual key setup needed
 - **OCI API private key** (`~/.oci/oci_api_key.pem`) must be copied to the cluster before running `setup.sh`:
   ```bash
   scp ~/.oci/oci_api_key.pem YOUR_CLUSTER.unc.edu:~/.oci/oci_api_key.pem
