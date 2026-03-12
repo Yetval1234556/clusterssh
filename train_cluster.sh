@@ -69,7 +69,7 @@ echo "=== Starting training ==="
 if [ "$NGPUS" -eq 1 ]; then
     # Single GPU — H200 has 96GB VRAM, use large batch
     python train_efficientnet_b0.py \
-        --epochs 30 \
+        --epochs 75 \
         --batch-size 32 \
         --lr 1e-4 \
         --unfreeze-blocks 4 \
@@ -87,7 +87,7 @@ else
         --rdzv_backend=c10d \
         --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
         train_efficientnet_b0_ddp.py \
-            --epochs 30 \
+            --epochs 75 \
             --batch-size 32 \
             --lr 1e-4 \
             --unfreeze-blocks 4 \
