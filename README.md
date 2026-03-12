@@ -27,14 +27,10 @@ chmod +x connect.sh
 
 ### 2. One-time setup
 ```bash
-# Copy your OCI API key first
-scp ~/.oci/oci_api_key.pem YOUR_CLUSTER.unc.edu:~/.oci/oci_api_key.pem
-
-# Then on the cluster:
 bash setup.sh
 ```
 This will:
-- Configure OCI CLI and Oracle S3 credentials
+- Configure OCI CLI and Oracle S3 credentials (hardcoded — no manual key setup needed)
 - Clone the DinoModelsEXTRA repo to scratch storage
 - Download the 10GB dataset from Oracle Object Storage
 - Set up the `dinov2` conda environment
@@ -135,9 +131,9 @@ oci os object get \
 ---
 
 ## Requirements
-- OCI CLI configured (`~/.oci/config` + `~/.oci/oci_api_key.pem`)
-- AWS CLI for dataset download (S3-compatible)
-- Conda with `dinov2` environment
+- OCI CLI installed (`pip install oci-cli`) — credentials are hardcoded in `setup.sh`
+- AWS CLI installed — S3 credentials are hardcoded in `setup.sh`
+- Conda with `dinov2` environment (created by `setup.sh`)
 - CUDA 11.7+
 - SLURM (UNC only)
 
