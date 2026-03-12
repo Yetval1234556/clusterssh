@@ -70,7 +70,7 @@ if [ "$NGPUS" -eq 1 ]; then
     # Single GPU — H200 has 96GB VRAM, use large batch
     python train_efficientnet_b0.py \
         --epochs 75 \
-        --batch-size 32 \
+        --batch-size 64 \
         --lr 1e-4 \
         --unfreeze-blocks 4 \
         --workers 28
@@ -78,7 +78,7 @@ if [ "$NGPUS" -eq 1 ]; then
 else
     # Multi-GPU DDP via torchrun
     # Effective batch size = batch_size x NGPUS (e.g. 32 x 2 = 64)
-    echo "Effective batch size: $((32 * NGPUS)) (32 per GPU x $NGPUS GPUs)"
+    echo "Effective batch size: $((64 * NGPUS)) (64 per GPU x $NGPUS GPUs)"
 
     srun torchrun \
         --nnodes=$SLURM_NNODES \
@@ -88,7 +88,7 @@ else
         --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
         train_efficientnet_b0_ddp.py \
             --epochs 75 \
-            --batch-size 32 \
+            --batch-size 64 \
             --lr 1e-4 \
             --unfreeze-blocks 4 \
             --workers 28
