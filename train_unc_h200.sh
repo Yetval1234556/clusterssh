@@ -5,20 +5,20 @@
 #SBATCH --partition=gpu_p
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=28
-#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=112
+#SBATCH --gres=gpu:8
 #SBATCH --constraint=h200
-#SBATCH --mem=240G
+#SBATCH --mem=1800G
 #SBATCH --time=96:00:00
 #SBATCH --nice=10000
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
-# sbatch train_unc_h200.sh       (2 GPUs default)
+# sbatch train_unc_h200.sh       (8 GPUs default)
 # sbatch train_unc_h200.sh 1     (1 GPU)
 
 set -e
 
-NGPUS=${1:-2}
+NGPUS=${1:-8}
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
@@ -74,7 +74,7 @@ if [ "$NGPUS" -eq 1 ]; then
         --batch-size 64 \
         --lr 1e-4 \
         --unfreeze-blocks 4 \
-        --workers 28
+        --workers 112
 else
     echo "Effective batch size: $((64 * NGPUS)) (64 per GPU x $NGPUS GPUs)"
     srun torchrun \
@@ -88,7 +88,7 @@ else
             --batch-size 64 \
             --lr 1e-4 \
             --unfreeze-blocks 4 \
-            --workers 28
+            --workers 112
 fi
 
 # ── Stop GPU monitor ──────────────────────────────────────────────────────────

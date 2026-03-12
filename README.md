@@ -37,7 +37,7 @@ This will:
 
 ### 3. Submit training job
 ```bash
-# 2x H200 (recommended — effective batch size 128)
+# 8x H200 (recommended — effective batch size 512)
 sbatch train_unc_h200.sh
 
 # Single H200
@@ -53,13 +53,13 @@ bash watch_training.sh <job_id>
 ### Cluster Specs
 | Setting | Value |
 |---------|-------|
-| GPUs | 2x NVIDIA H200 (96GB VRAM each) |
+| GPUs | 8x NVIDIA H200 (96GB VRAM each) |
 | Partition | `gpu_p` |
 | Constraint | `h200` |
-| CPUs | 28 |
-| RAM | 240GB |
+| CPUs | 112 |
+| RAM | 1800GB |
 | Max time | 96 hours |
-| Batch size | 64 per GPU (128 effective with 2 GPUs) |
+| Batch size | 64 per GPU (512 effective with 8 GPUs) |
 | Epochs | 75 |
 
 ---
