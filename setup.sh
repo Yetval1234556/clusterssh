@@ -3,6 +3,9 @@
 # Run this once on the Oracle VM to set up the environment.
 # Usage: bash setup.sh
 
+# Strip Windows line endings if present
+sed -i 's/\r//' "$0" 2>/dev/null || true
+
 set -e
 
 SCRATCH=$HOME/bloomi
@@ -19,14 +22,13 @@ echo "Home : $HOME"
 echo "Dir  : $SCRATCH"
 echo ""
 
-# 1. Configure OCI CLI
+# 1. Install and configure OCI CLI
 echo "[1/6] Configuring OCI CLI..."
-pip install oci-cli --quiet 2>/dev/null || true
+pip install oci-cli --quiet 2>/dev/null || pip3 install oci-cli --quiet 2>/dev/null || true
+export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
 mkdir -p ~/.oci
-cat > ~/.oci/config << 'OCIEOF'
+cat > ~/.oci/config << OCIEOF
 [DEFAULT]
-OCIEOF
-cat >> ~/.oci/config << OCIEOF
 user=${OCI_USER}
 fingerprint=${OCI_FINGERPRINT}
 tenancy=${OCI_TENANCY}
@@ -75,11 +77,12 @@ if ! command -v conda &>/dev/null; then
     bash /tmp/miniconda.sh -b -p $HOME/miniconda3
     eval "$($HOME/miniconda3/bin/conda shell.bash hook)"
 fi
-source "$HOME/miniconda3/etc/profile.d/conda.sh" 2>/dev/null || \
-source "$HOME/anaconda3/etc/profile.d/conda.sh" 2>/dev/null || \
-eval "$(conda shell.bash hook)"
-conda env create -f $SCRATCH/conda.yaml -n dinov2 2>/dev/null || \
-conda env update -f $SCRATCH/conda.yaml -n dinov2
+if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
+    source "$HOME/anaconda3/etc/profile.d/conda.sh"
+fi
+conda env create -f $SCRATCH/conda.yaml -n dinov2 2>/dev/null || conda env update -f $SCRATCH/conda.yaml -n dinov2
 echo "  Conda env ready."
 
 # 6. Done
@@ -87,4 +90,4 @@ echo "[6/6] Setup complete — start training:"
 echo "  bash train_oracle_a100.sh 1    (1x A100)"
 echo "  bash train_oracle_a100.sh 2    (2x A100)"
 echo ""
-echo "Monitor from your PC: monitor.bat oracle"
+echo "Monitor from your PC: .\monitor.bat oracle"
