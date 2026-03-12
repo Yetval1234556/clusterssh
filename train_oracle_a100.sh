@@ -4,6 +4,25 @@
 # Usage: bash train_oracle_a100.sh [num_gpus]
 #   bash train_oracle_a100.sh 1   (single A100 80GB)
 #   bash train_oracle_a100.sh 2   (if using VM.GPU.A100.2)
+#
+# ── Internet Fallback (tmux) ───────────────────────────────────────────────────
+# Training runs inside a tmux session — if your Mac loses internet the training
+# keeps running on the Oracle instance. Reconnect anytime with:
+#   ssh opc@<instance-ip>
+#   tmux attach -t dinobloom
+#
+# If tmux is not installed: sudo yum install -y tmux
+
+TMUX_SESSION="dinobloom"
+
+# If not already inside tmux, launch inside one and exit
+if [ -z "$TMUX" ]; then
+    echo "Launching training inside tmux session '$TMUX_SESSION'..."
+    echo "Reconnect anytime with: tmux attach -t $TMUX_SESSION"
+    tmux new-session -d -s $TMUX_SESSION "bash $0 $@ --in-tmux"
+    echo "Training running in background. Safe to close this terminal."
+    exit 0
+fi
 
 set -e
 

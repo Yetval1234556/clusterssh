@@ -22,8 +22,10 @@ Multi-GPU training requires `train_efficientnet_b0_ddp.py` from [DinoModelsEXTRA
 Edit `connect.sh`, replace `YOUR_CLUSTER.unc.edu` with your cluster address, then run from Mac Terminal:
 ```bash
 chmod +x connect.sh
-./connect.sh
+./connect.sh          # UNC cluster (auto-reconnects if internet drops)
+./connect.sh oracle   # Oracle A100 instance
 ```
+`connect.sh` automatically retries every 5 seconds if your Mac loses internet.
 
 ### 2. One-time setup
 ```bash
@@ -100,7 +102,14 @@ conda env create -f conda.yaml -n dinov2
 conda activate dinov2
 ```
 
-### 4. Run training
+### 4. Internet fallback
+Training on Oracle runs inside a **tmux session** automatically. If your Mac loses internet the training keeps running. Reconnect anytime:
+```bash
+./connect.sh oracle
+tmux attach -t dinobloom
+```
+
+### 5. Run training
 ```bash
 # Single A100 80GB
 bash train_oracle_a100.sh 1
