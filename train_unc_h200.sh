@@ -100,17 +100,5 @@ echo "=== Final GPU state ==="
 nvidia-smi
 echo "=== Training done: $(date) ==="
 
-# ── Upload model to Oracle Object Storage ─────────────────────────────────────
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DEST="trained-models/dinobloom_g_h200_${TIMESTAMP}.pth"
-
-echo ""
-echo "=== Uploading model to Oracle Object Storage ==="
-oci os object put \
-    --namespace idcsxwupyymi \
-    --bucket-name bloomi-training-data \
-    --name "$DEST" \
-    --file $SCRATCH/dinobloom_g_finetuned.pth \
-    --force
-
-echo "=== Model uploaded to: bloomi-training-data/$DEST ==="
+# Model uploads are handled automatically by the training script
+# whenever test accuracy improves — no manual upload needed.
