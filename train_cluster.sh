@@ -1,41 +1,58 @@
 #!/bin/bash
-#SBATCH -o /scratch/%u/bloomi/logs/run_%j.txt
-#SBATCH -e /scratch/%u/bloomi/logs/error_%j.txt
-#SBATCH -J dino-train
-#SBATCH --reservation=test_supergpu05
-#SBATCH --qos gpu_reservation
-#SBATCH -p gpu_p
+#SBATCH --job-name=dinobloom
+#SBATCH --output=/scratch/%u/bloomi/logs/dino_%j.out
+#SBATCH --error=/scratch/%u/bloomi/logs/dino_%j.err
+#SBATCH --partition=gpu_p
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=28
+#SBATCH --gres=gpu:2
+#SBATCH --constraint=h200
+#SBATCH --mem=240G
 #SBATCH --time=96:00:00
-#SBATCH --nice=10000
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
-# Single GPU:  sbatch --gres=gpu:1 -c 16  --mem=128G  train_cluster.sh 1
-# 8 GPUs:      sbatch --gres=gpu:8 -c 126 --mem=1800G train_cluster.sh 8
+# Single GPU:  sbatch --gres=gpu:1 train_cluster.sh 1
+# 2 GPUs:      sbatch --gres=gpu:2 train_cluster.sh 2  (default)
 
 set -e
 
-NGPUS=${1:-1}   # Number of GPUs — pass as argument, defaults to 1
+NGPUS=${1:-2}
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
+# Uncomment if conda activate fails:
+# source $HOME/miniconda3/etc/profile.d/conda.sh
 conda activate dinov2
 
 SCRATCH=/scratch/$USER/bloomi
 cd $SCRATCH
-mkdir -p logs
+mkdir -p logs output
 
-# ── GPU Info ──────────────────────────────────────────────────────────────────
+# ── Info ──────────────────────────────────────────────────────────────────────
 echo "========================================================"
 echo "  DinoBloom-G Fine-Tuning"
 echo "========================================================"
 echo "  Mode      : ${NGPUS} GPU(s)"
 echo "  Node      : $(hostname)"
-echo "  Date      : $(date)"
 echo "  Job ID    : $SLURM_JOB_ID"
+echo "  Date      : $(date)"
 echo "  CUDA      : $(nvcc --version 2>/dev/null | grep release || echo 'nvcc not in PATH')"
 echo "========================================================"
 echo ""
 nvidia-smi
+echo ""
+
+# ── Distributed setup ─────────────────────────────────────────────────────────
+export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
+export MASTER_PORT=29500
+NUM_GPUS=$(nvidia-smi -L | wc -l)
+export WORLD_SIZE=$((SLURM_NNODES * NUM_GPUS))
+
+echo "Master Addr : $MASTER_ADDR"
+echo "Master Port : $MASTER_PORT"
+echo "World Size  : $WORLD_SIZE"
+echo "GPUs/Node   : $NUM_GPUS"
 echo ""
 
 # ── Background GPU monitor (logs every 30s) ───────────────────────────────────
@@ -50,22 +67,31 @@ echo ""
 echo "=== Starting training ==="
 
 if [ "$NGPUS" -eq 1 ]; then
-    # Single GPU
+    # Single GPU — H200 has 96GB VRAM, use large batch
     python train_efficientnet_b0.py \
         --epochs 30 \
-        --batch-size 8 \
+        --batch-size 32 \
         --lr 1e-4 \
         --unfreeze-blocks 4 \
-        --workers 16
+        --workers 28
+
 else
-    # Multi-GPU — effective batch = batch_size x NGPUS
-    echo "Effective batch size: $((8 * NGPUS)) (8 per GPU x $NGPUS GPUs)"
-    torchrun --nproc_per_node=$NGPUS train_efficientnet_b0_ddp.py \
-        --epochs 30 \
-        --batch-size 8 \
-        --lr 1e-4 \
-        --unfreeze-blocks 4 \
-        --workers 16
+    # Multi-GPU DDP via torchrun
+    # Effective batch size = batch_size x NGPUS (e.g. 32 x 2 = 64)
+    echo "Effective batch size: $((32 * NGPUS)) (32 per GPU x $NGPUS GPUs)"
+
+    srun torchrun \
+        --nnodes=$SLURM_NNODES \
+        --nproc_per_node=$NUM_GPUS \
+        --rdzv_id=$SLURM_JOB_ID \
+        --rdzv_backend=c10d \
+        --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
+        train_efficientnet_b0_ddp.py \
+            --epochs 30 \
+            --batch-size 32 \
+            --lr 1e-4 \
+            --unfreeze-blocks 4 \
+            --workers 28
 fi
 
 # ── Stop GPU monitor ──────────────────────────────────────────────────────────
@@ -75,7 +101,6 @@ kill $GPU_MONITOR_PID 2>/dev/null || true
 echo ""
 echo "=== Final GPU state ==="
 nvidia-smi
-echo ""
 echo "=== Training done: $(date) ==="
 
 # ── Upload model to Oracle Object Storage ─────────────────────────────────────
