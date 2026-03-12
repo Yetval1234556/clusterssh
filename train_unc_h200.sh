@@ -19,6 +19,10 @@
 set -e
 
 NGPUS=${1:-8}
+RUN_DATE=$(date +%Y%m%d_%H%M%S)
+OCI_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}"
+OCI_NS="idcsxwupyymi"
+OCI_BUCKET="bloomi-training-data"
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
@@ -105,5 +109,28 @@ echo "=== Final GPU state ==="
 nvidia-smi
 echo "=== Training done: $(date) ==="
 
-# Model uploads are handled automatically by the training script
-# whenever test accuracy improves — no manual upload needed.
+# ── Upload best and last to Oracle ────────────────────────────────────────────
+echo "=== Uploading models to Oracle Object Storage ==="
+echo "  Run folder: $OCI_PREFIX"
+
+if [ -f "$SCRATCH/dinobloom_g_finetuned.pth" ]; then
+    oci os object put \
+        --namespace $OCI_NS --bucket-name $OCI_BUCKET \
+        --name "$OCI_PREFIX/best.pth" \
+        --file "$SCRATCH/dinobloom_g_finetuned.pth" --force
+    echo "  Uploaded → $OCI_PREFIX/best.pth"
+else
+    echo "  WARNING: dinobloom_g_finetuned.pth not found — skipping best upload"
+fi
+
+if [ -f "$SCRATCH/checkpoint_latest.pth" ]; then
+    oci os object put \
+        --namespace $OCI_NS --bucket-name $OCI_BUCKET \
+        --name "$OCI_PREFIX/last.pth" \
+        --file "$SCRATCH/checkpoint_latest.pth" --force
+    echo "  Uploaded → $OCI_PREFIX/last.pth"
+else
+    echo "  WARNING: checkpoint_latest.pth not found — skipping last upload"
+fi
+
+echo "=== Upload done ==="
