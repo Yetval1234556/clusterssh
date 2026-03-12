@@ -11,7 +11,7 @@
 #   ./monitor.sh oracle connect   — just SSH into Oracle
 
 # ── Config — update these ──────────────────────────────────────────────────────
-UNC_HOST="longleaf.unc.edu"
+UNC_HOST="ncshare.login.org"
 UNC_USER="rpatel1"
 ORACLE_HOST="YOUR_ORACLE_INSTANCE_IP"
 ORACLE_USER="opc"

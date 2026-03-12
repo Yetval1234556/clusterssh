@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: ── Config — update these ──────────────────────────────────────────────────────
-set UNC_HOST=longleaf.unc.edu
+set UNC_HOST=ncshare.login.org
 set UNC_USER=rpatel1
 set ORACLE_HOST=YOUR_ORACLE_INSTANCE_IP
 set ORACLE_USER=opc

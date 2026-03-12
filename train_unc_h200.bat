@@ -2,7 +2,7 @@
 setlocal
 
 :: ── Config — update these ──────────────────────────────────────────────────────
-set UNC_HOST=longleaf.unc.edu
+set UNC_HOST=ncshare.login.org
 set UNC_USER=rpatel1
 :: ──────────────────────────────────────────────────────────────────────────────
 
