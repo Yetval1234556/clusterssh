@@ -9,7 +9,7 @@ sed -i 's/\r//' "$0" 2>/dev/null || true
 set -e
 
 SCRATCH=/hpc/home/$USER/bloomi
-REPO_URL="https://github.com/Yetval1234556/DinoModelsEXTRA"
+REPO_URL="https://github.com/Yetval1234556/DinoModelsEXTRA.git"
 ORACLE_BUCKET="bloomi-training-data"
 ORACLE_NAMESPACE="idcsxwupyymi"
 ORACLE_REGION="us-ashburn-1"
@@ -22,10 +22,16 @@ echo "User    : $USER"
 echo "Dir     : $SCRATCH"
 echo ""
 
-# 1. Configure OCI CLI
+# 1. Install and configure OCI CLI
 echo "[1/5] Configuring OCI CLI..."
 pip install oci-cli --quiet 2>/dev/null || pip3 install oci-cli --quiet 2>/dev/null || true
-export PATH="$HOME/.local/bin:$HOME/bin:$PATH"
+# Add all common install locations to PATH
+export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
+# If still not found, try to locate it
+if ! command -v oci &>/dev/null; then
+    OCI_BIN=$(find $HOME -name "oci" -type f 2>/dev/null | head -1)
+    [ -n "$OCI_BIN" ] && export PATH="$(dirname $OCI_BIN):$PATH"
+fi
 mkdir -p ~/.oci
 cat > ~/.oci/config << OCIEOF
 [DEFAULT]
@@ -35,17 +41,17 @@ tenancy=${OCI_TENANCY}
 region=${ORACLE_REGION}
 OCIEOF
 chmod 600 ~/.oci/config
-oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: OCI CLI auth failed"
+oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: OCI CLI auth failed — data download may fail"
 
-# 2. Clone the repo
+# 2. Clone the repo (public, no auth needed)
 echo "[2/5] Cloning repository..."
 mkdir -p $SCRATCH
 cd /hpc/home/$USER
 if [ -d "bloomi/.git" ]; then
     echo "  Repo exists, updating..."
-    cd bloomi && git pull
+    cd bloomi && GIT_TERMINAL_PROMPT=0 git pull
 else
-    git clone $REPO_URL bloomi
+    GIT_TERMINAL_PROMPT=0 git clone $REPO_URL bloomi
     cd bloomi
 fi
 
