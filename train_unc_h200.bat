@@ -2,8 +2,8 @@
 setlocal
 
 :: ── Config — update these ──────────────────────────────────────────────────────
-set UNC_HOST=YOUR_CLUSTER.unc.edu
-set UNC_USER=%USERNAME%
+set UNC_HOST=longleaf.unc.edu
+set UNC_USER=rpatel1
 :: ──────────────────────────────────────────────────────────────────────────────
 
 :: Usage:

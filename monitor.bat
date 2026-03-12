@@ -2,8 +2,8 @@
 setlocal enabledelayedexpansion
 
 :: ── Config — update these ──────────────────────────────────────────────────────
-set UNC_HOST=YOUR_CLUSTER.unc.edu
-set UNC_USER=%USERNAME%
+set UNC_HOST=longleaf.unc.edu
+set UNC_USER=rpatel1
 set ORACLE_HOST=YOUR_ORACLE_INSTANCE_IP
 set ORACLE_USER=opc
 set REFRESH=10
@@ -28,7 +28,7 @@ if /i "%TARGET%"=="oracle" (
 ) else (
     set HOST=%UNC_HOST%
     set SSH_USER=%UNC_USER%
-    set SCRATCH=/scratch/$USER/bloomi
+    set SCRATCH=/scratch/rpatel1/bloomi
 )
 
 set SSH_OPTS=-o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ConnectTimeout=10
