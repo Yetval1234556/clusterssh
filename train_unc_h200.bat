@@ -2,7 +2,7 @@
 setlocal
 
 :: ── Config — update these ──────────────────────────────────────────────────────
-set UNC_HOST=ncshare.login.org
+set UNC_HOST=login-01.ncshare.org
 set UNC_USER=rpatel1
 :: ──────────────────────────────────────────────────────────────────────────────
 

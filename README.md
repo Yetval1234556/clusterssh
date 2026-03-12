@@ -3,7 +3,7 @@
 Scripts for running DinoBloom-G leukemia classifier training on an Oracle A100 GPU server.
 Works on **Mac** (`.sh`) and **Windows** (`.bat`).
 
-Cluster: `rpatel1@ncshare.login.org`
+Cluster: `rpatel1@login-01.ncshare.org`
 
 ---
 
