@@ -5,20 +5,20 @@
 #SBATCH --partition=gpu_p
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=112
-#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-task=28
+#SBATCH --gres=gpu:2
 #SBATCH --constraint=h200
-#SBATCH --mem=1800G
+#SBATCH --mem=450G
 #SBATCH --time=96:00:00
 #SBATCH --nice=10000
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
-# sbatch train_unc_h200.sh       (8 GPUs default)
+# sbatch train_unc_h200.sh       (2 GPUs default)
 # sbatch train_unc_h200.sh 1     (1 GPU)
 
 set -e
 
-NGPUS=${1:-8}
+NGPUS=${1:-2}
 RUN_DATE=$(date +%Y%m%d_%H%M%S)
 OCI_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}"
 OCI_NS="idcsxwupyymi"

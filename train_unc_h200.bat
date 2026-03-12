@@ -11,7 +11,7 @@ set UNC_USER=rpatel1
 ::   train_unc_h200.bat 1    (1 GPU)
 
 set NGPUS=%~1
-if "%NGPUS%"=="" set NGPUS=8
+if "%NGPUS%"=="" set NGPUS=2
 
 set SCRIPTDIR=%~dp0
 
