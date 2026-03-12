@@ -9,6 +9,7 @@ set -e
 
 NGPUS=${1:-1}
 SCRATCH=$HOME/bloomi
+DATA_DIR="$SCRATCH/New Data/extracted"
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc

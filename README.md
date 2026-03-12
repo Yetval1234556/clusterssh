@@ -69,7 +69,10 @@ bash watch_training.sh <job_id>
 ### 1. Spin up instance
 Oracle Console → Compute → Instances → Create Instance → Shape: `VM.GPU.A100.1`
 
-### 2. SSH in and set up
+### 2. Configure storage
+When creating the instance set the boot volume to **500GB+** — Oracle gives unlimited storage the first month so use it.
+
+### 3. SSH in and set up
 ```bash
 ssh opc@<instance-ip>
 
@@ -77,17 +80,27 @@ ssh opc@<instance-ip>
 git clone https://github.com/Yetval1234556/DinoModelsEXTRA bloomi
 cd bloomi
 
-# Pull dataset from Oracle Object Storage
-aws s3 cp s3://bloomi-training-data/extracted/ "New Data/extracted/" \
-  --recursive \
-  --endpoint-url https://idcsxwupyymi.compat.objectstorage.us-ashburn-1.oraclecloud.com
+# Pull dataset from Oracle Object Storage using OCI CLI (credentials hardcoded)
+oci os object bulk-download \
+  --namespace idcsxwupyymi \
+  --bucket-name bloomi-training-data \
+  --download-dir "New Data/extracted" \
+  --prefix "extracted/" \
+  --overwrite
+
+# Pull DinoBloom-G pretrained weights
+oci os object get \
+  --namespace idcsxwupyymi \
+  --bucket-name bloomi-training-data \
+  --name "DinoBloom-G.pth" \
+  --file DinoBloom-G.pth
 
 # Set up conda
 conda env create -f conda.yaml -n dinov2
 conda activate dinov2
 ```
 
-### 3. Run training
+### 4. Run training
 ```bash
 # Single A100 80GB
 bash train_oracle_a100.sh 1
@@ -100,6 +113,7 @@ bash train_oracle_a100.sh 2
 | Setting | Value |
 |---------|-------|
 | GPU | 1x NVIDIA A100 (80GB VRAM) |
+| Storage | Unlimited first month — set boot volume to 500GB+ |
 | Batch size | 64 per GPU |
 | Epochs | 75 |
 | Est. time | ~25-30 hours |
