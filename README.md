@@ -12,7 +12,7 @@ Supports two environments:
 
 | File | What it does |
 |------|-------------|
-| `monitor.sh` | Run from your Mac — shows live GPU stats and training progress. Auto-reconnects if your internet drops. |
+| `monitor.sh` | Run from your Mac — shows live GPU stats and training progress. Auto-reconnects if your internet drops. (`./monitor.sh unc connect` / `./monitor.sh oracle connect` opens a plain SSH session instead.) |
 | `setup.sh` | Run once on the cluster — downloads the dataset, model weights, and sets up the conda environment. |
 | `train_unc_h200.sh` | Submits a training job to the UNC SLURM scheduler. |
 | `train_oracle_a100.sh` | Starts training on the Oracle VM inside a tmux session (keeps running if your Mac disconnects). |
@@ -21,40 +21,47 @@ Supports two environments:
 
 ## UNC H200
 
+**Step 1 — SSH into the cluster and run setup (first time only):**
 ```bash
-# On the cluster — first time only
+ssh YOUR_USER@YOUR_CLUSTER.unc.edu
 bash setup.sh
+```
 
-# Submit training job
+**Step 2 — Submit the training job (still on the cluster):**
+```bash
 sbatch train_unc_h200.sh        # 8x H200 (recommended, effective batch size 512)
 sbatch train_unc_h200.sh 1      # 1x H200
+```
 
-# From your Mac — live dashboard (GPU %, memory, training metrics, recent logs)
-./monitor.sh unc
-
-# From your Mac — plain SSH with auto-reconnect
-./monitor.sh unc connect
+**Step 3 — Monitor from your Mac:**
+```bash
+./monitor.sh unc                # live dashboard — GPU %, memory, training metrics, recent logs
 ```
 
 ---
 
 ## Oracle A100
 
+**Step 1 — SSH into the VM and run setup (first time only):**
 ```bash
-# On the VM — first time only
+ssh opc@<instance-ip>
 bash setup.sh
+```
 
-# Start training — automatically runs inside tmux so it keeps going if you disconnect
+**Step 2 — Start training (still on the VM):**
+```bash
 bash train_oracle_a100.sh 1     # 1x A100 80GB
 bash train_oracle_a100.sh 2     # 2x A100
+```
+Training runs inside tmux automatically — safe to close the terminal.
 
-# From your Mac — live dashboard
-./monitor.sh oracle
+**Step 3 — Monitor from your Mac:**
+```bash
+./monitor.sh oracle             # live dashboard
+```
 
-# From your Mac — plain SSH with auto-reconnect
-./monitor.sh oracle connect
-
-# If your Mac lost internet and you need to get back to the training session
+**If your Mac lost internet and training is still running:**
+```bash
 ssh opc@<instance-ip>
 tmux attach -t dinobloom
 ```
