@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dinobloom
+#SBATCH --job-name=dinobloom-h200
 #SBATCH --output=/scratch/%u/bloomi/logs/dino_%j.out
 #SBATCH --error=/scratch/%u/bloomi/logs/dino_%j.err
 #SBATCH --partition=gpu_p
@@ -10,10 +10,11 @@
 #SBATCH --constraint=h200
 #SBATCH --mem=240G
 #SBATCH --time=96:00:00
+#SBATCH --nice=10000
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
-# Single GPU:  sbatch --gres=gpu:1 train_cluster.sh 1
-# 2 GPUs:      sbatch --gres=gpu:2 train_cluster.sh 2  (default)
+# sbatch train_unc_h200.sh       (2 GPUs default)
+# sbatch train_unc_h200.sh 1     (1 GPU)
 
 set -e
 
@@ -21,8 +22,7 @@ NGPUS=${1:-2}
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
-# Uncomment if conda activate fails:
-# source $HOME/miniconda3/etc/profile.d/conda.sh
+# source $HOME/miniconda3/etc/profile.d/conda.sh  # uncomment if needed
 conda activate dinov2
 
 SCRATCH=/scratch/$USER/bloomi
@@ -31,13 +31,15 @@ mkdir -p logs output
 
 # ── Info ──────────────────────────────────────────────────────────────────────
 echo "========================================================"
-echo "  DinoBloom-G Fine-Tuning"
+echo "  DinoBloom-G Fine-Tuning — UNC H200 Cluster"
 echo "========================================================"
-echo "  Mode      : ${NGPUS} GPU(s)"
+echo "  GPUs      : ${NGPUS}x H200 (96GB VRAM each)"
 echo "  Node      : $(hostname)"
 echo "  Job ID    : $SLURM_JOB_ID"
 echo "  Date      : $(date)"
 echo "  CUDA      : $(nvcc --version 2>/dev/null | grep release || echo 'nvcc not in PATH')"
+echo "  Batch/GPU : 64  |  Effective batch: $((64 * NGPUS))"
+echo "  Epochs    : 75"
 echo "========================================================"
 echo ""
 nvidia-smi
@@ -55,7 +57,7 @@ echo "World Size  : $WORLD_SIZE"
 echo "GPUs/Node   : $NUM_GPUS"
 echo ""
 
-# ── Background GPU monitor (logs every 30s) ───────────────────────────────────
+# ── Background GPU monitor (every 30s) ────────────────────────────────────────
 nvidia-smi \
     --query-gpu=timestamp,name,utilization.gpu,utilization.memory,memory.used,memory.free,temperature.gpu,power.draw \
     --format=csv --loop=30 > logs/gpu_monitor_${SLURM_JOB_ID}.csv &
@@ -67,19 +69,14 @@ echo ""
 echo "=== Starting training ==="
 
 if [ "$NGPUS" -eq 1 ]; then
-    # Single GPU — H200 has 96GB VRAM, use large batch
     python train_efficientnet_b0.py \
         --epochs 75 \
         --batch-size 64 \
         --lr 1e-4 \
         --unfreeze-blocks 4 \
         --workers 28
-
 else
-    # Multi-GPU DDP via torchrun
-    # Effective batch size = batch_size x NGPUS (e.g. 32 x 2 = 64)
     echo "Effective batch size: $((64 * NGPUS)) (64 per GPU x $NGPUS GPUs)"
-
     srun torchrun \
         --nnodes=$SLURM_NNODES \
         --nproc_per_node=$NUM_GPUS \
@@ -105,7 +102,7 @@ echo "=== Training done: $(date) ==="
 
 # ── Upload model to Oracle Object Storage ─────────────────────────────────────
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DEST="trained-models/dinobloom_g_leukemia_classifier_${TIMESTAMP}.pth"
+DEST="trained-models/dinobloom_g_h200_${TIMESTAMP}.pth"
 
 echo ""
 echo "=== Uploading model to Oracle Object Storage ==="
