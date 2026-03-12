@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=dinobloom-h200
-#SBATCH --output=/scratch/%u/bloomi/logs/dino_%j.out
-#SBATCH --error=/scratch/%u/bloomi/logs/dino_%j.err
+#SBATCH --output=/hpc/home/%u/bloomi/logs/dino_%j.out
+#SBATCH --error=/hpc/home/%u/bloomi/logs/dino_%j.err
 #SBATCH --partition=gpu_p
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -34,7 +34,7 @@ for f in "$HOME/miniconda3/etc/profile.d/conda.sh" \
 done
 conda activate dinov2
 
-SCRATCH=/scratch/$USER/bloomi
+SCRATCH=/hpc/home/$USER/bloomi
 cd $SCRATCH
 mkdir -p logs output
 

@@ -28,7 +28,7 @@ if /i "%TARGET%"=="oracle" (
 ) else (
     set HOST=%UNC_HOST%
     set SSH_USER=%UNC_USER%
-    set SCRATCH=/scratch/rpatel1/bloomi
+    set SCRATCH=/hpc/home/rpatel1/bloomi
 )
 
 set SSH_OPTS=-o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ConnectTimeout=10

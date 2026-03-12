@@ -36,7 +36,7 @@ if [ "$TARGET" = "oracle" ]; then
 else
     HOST=$UNC_HOST
     SSH_USER=$UNC_USER
-    SCRATCH="/scratch/\$USER/bloomi"
+    SCRATCH="/hpc/home/\$USER/bloomi"
 fi
 
 # ── SSH options for resilience ─────────────────────────────────────────────────

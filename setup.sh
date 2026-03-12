@@ -6,7 +6,7 @@
 set -e
 
 CLUSTER_USER=$USER
-SCRATCH=/scratch/$CLUSTER_USER
+SCRATCH=/hpc/home/$CLUSTER_USER
 REPO_URL="https://github.com/Yetval1234556/DinoModelsEXTRA"
 ORACLE_BUCKET="bloomi-training-data"
 ORACLE_NAMESPACE="idcsxwupyymi"
@@ -35,7 +35,7 @@ oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: O
 
 # 2. Clone the repo
 echo "[2/6] Cloning repository..."
-mkdir -p $SCRATCH
+mkdir -p $SCRATCH/bloomi
 cd $SCRATCH
 if [ -d "bloomi/.git" ]; then
     echo "  Repo exists, updating..."
@@ -68,10 +68,9 @@ echo "  Weights downloaded."
 # 5. Set up conda environment
 echo "[5/6] Setting up conda environment..."
 module load conda 2>/dev/null || true
-# Source conda init from common locations (needed in non-interactive shells)
 for f in "$HOME/miniconda3/etc/profile.d/conda.sh" \
-          "$HOME/anaconda3/etc/profile.d/conda.sh" \
-          "/opt/conda/etc/profile.d/conda.sh"; do
+         "$HOME/anaconda3/etc/profile.d/conda.sh" \
+         "/opt/conda/etc/profile.d/conda.sh"; do
     [ -f "$f" ] && source "$f" && break
 done
 conda env create -f conda.yaml -n dinov2 2>/dev/null || conda env update -f conda.yaml -n dinov2
