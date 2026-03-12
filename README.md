@@ -6,11 +6,10 @@ Scripts for connecting to GPU infrastructure and launching DinoBloom-G leukemia 
 
 | File | Description |
 |------|-------------|
-| `connect.sh` | Mac/Linux shell script to SSH into the UNC cluster |
-| `setup.sh` | One-time setup — pulls data, clones repo, sets up conda |
-| `train_unc_h200.sh` | SLURM job for UNC H200 cluster (2x H200, 96GB VRAM each) |
-| `train_oracle_a100.sh` | Direct training script for Oracle A100 VM (80GB VRAM) |
-| `watch_training.sh` | Live training monitor — metrics, GPU stats, logs |
+| `monitor.sh` | Mac-side monitor — GPU stats, metrics, logs, auto-reconnects if internet drops |
+| `setup.sh` | One-time setup on cluster — pulls data, clones repo, sets up conda |
+| `train_unc_h200.sh` | SLURM job for UNC H200 cluster (8x H200, 96GB VRAM each) |
+| `train_oracle_a100.sh` | Direct training script for Oracle A100 VM (80GB VRAM, tmux fallback) |
 
 Multi-GPU training requires `train_efficientnet_b0_ddp.py` from [DinoModelsEXTRA](https://github.com/Yetval1234556/DinoModelsEXTRA).
 
@@ -18,14 +17,17 @@ Multi-GPU training requires `train_efficientnet_b0_ddp.py` from [DinoModelsEXTRA
 
 ## UNC H200 Cluster
 
-### 1. Connect
-Edit `connect.sh`, replace `YOUR_CLUSTER.unc.edu` with your cluster address, then run from Mac Terminal:
+### 1. Connect & Monitor
+Edit `monitor.sh`, fill in `UNC_HOST` and `ORACLE_HOST`, then from Mac Terminal:
 ```bash
-chmod +x connect.sh
-./connect.sh          # UNC cluster (auto-reconnects if internet drops)
-./connect.sh oracle   # Oracle A100 instance
+chmod +x monitor.sh
+
+./monitor.sh unc connect      # SSH into UNC cluster
+./monitor.sh oracle connect   # SSH into Oracle instance
+./monitor.sh unc              # Live GPU monitor (UNC)
+./monitor.sh oracle           # Live GPU monitor (Oracle)
 ```
-`connect.sh` automatically retries every 5 seconds if your Mac loses internet.
+Auto-reconnects every 5 seconds if your Mac loses internet.
 
 ### 2. One-time setup
 ```bash
@@ -46,11 +48,11 @@ sbatch train_unc_h200.sh
 sbatch train_unc_h200.sh 1
 ```
 
-### 4. Monitor
+### 4. Monitor (from your Mac)
 ```bash
-squeue -u $USER
-bash watch_training.sh <job_id>
+./monitor.sh unc
 ```
+Shows GPU utilization, training metrics, and recent log output. Refreshes every 10s and auto-reconnects if internet drops.
 
 ### Cluster Specs
 | Setting | Value |
@@ -105,7 +107,7 @@ conda activate dinov2
 ### 4. Internet fallback
 Training on Oracle runs inside a **tmux session** automatically. If your Mac loses internet the training keeps running. Reconnect anytime:
 ```bash
-./connect.sh oracle
+./monitor.sh oracle connect
 tmux attach -t dinobloom
 ```
 
