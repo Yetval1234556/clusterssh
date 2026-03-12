@@ -23,20 +23,15 @@ echo ""
 # 1. Configure OCI CLI
 echo "[1/6] Configuring OCI CLI..."
 mkdir -p ~/.oci
-
-# Copy your OCI API private key to the cluster first:
-#   scp ~/.oci/oci_api_key.pem YOUR_CLUSTER.unc.edu:~/.oci/oci_api_key.pem
-# Then this config will work:
 cat > ~/.oci/config << EOF
 [DEFAULT]
 user=${OCI_USER}
 fingerprint=${OCI_FINGERPRINT}
 tenancy=${OCI_TENANCY}
 region=${ORACLE_REGION}
-key_file=${HOME}/.oci/oci_api_key.pem
 EOF
 chmod 600 ~/.oci/config
-oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: OCI CLI auth failed — check ~/.oci/oci_api_key.pem"
+oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: OCI CLI auth failed"
 
 # 2. Clone the repo
 echo "[2/6] Cloning repository..."
@@ -84,7 +79,7 @@ echo "  Conda env ready."
 
 # 6. Ready to submit
 echo "[6/6] Setup complete — submit your training job:"
-echo "  sbatch train_unc_h200.sh       (8x H200, recommended)"
+echo "  sbatch train_unc_h200.sh       (2x H200, default)"
 echo "  sbatch train_unc_h200.sh 1     (single H200)"
 echo ""
 echo "Monitor with: squeue -u $USER"

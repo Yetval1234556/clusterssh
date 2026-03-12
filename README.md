@@ -30,17 +30,11 @@ Before running anything on the cluster, copy the scripts over from your local ma
 **Mac / Linux:**
 ```bash
 scp setup.sh train_unc_h200.sh train_oracle_a100.sh rpatel1@ncshare.login.org:~/
-
-# Also copy your OCI API key (needed for dataset download):
-scp ~/.oci/oci_api_key.pem rpatel1@ncshare.login.org:~/.oci/oci_api_key.pem
 ```
 
 **Windows (Command Prompt):**
 ```cmd
 scp setup.sh train_unc_h200.sh train_oracle_a100.sh rpatel1@ncshare.login.org:/home/rpatel1/
-
-rem Also copy your OCI API key:
-scp %USERPROFILE%\.oci\oci_api_key.pem rpatel1@ncshare.login.org:/home/rpatel1/.oci/oci_api_key.pem
 ```
 
 > For Oracle, update `ORACLE_HOST` in `monitor.sh` / `monitor.bat` with your VM's public IP.
@@ -177,7 +171,6 @@ Browse all runs at [Oracle Cloud Console](https://cloud.oracle.com) → Object S
 ## Requirements
 
 - **SSH / SCP** — built into Mac/Linux. On Windows, built into Windows 10/11 (open CMD and type `ssh` to verify).
-- **OCI CLI** — install on your local machine and on the cluster: `pip install oci-cli`
-- **OCI API private key** — `~/.oci/oci_api_key.pem` must exist locally and be SCP'd to the cluster (see Step 0 above)
+- **OCI CLI** — install on the cluster: `pip install oci-cli` (credentials are hardcoded in `setup.sh`, no key file needed)
 - **conda** — `setup.sh` creates the `dinov2` environment automatically on the cluster
 - **tmux** — on Oracle VM, usually pre-installed. If not: `sudo yum install -y tmux`
