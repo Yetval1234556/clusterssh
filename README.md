@@ -70,23 +70,42 @@ tmux attach -t dinobloom
 
 ## Getting the Trained Model
 
-The best model is **automatically saved to Oracle Object Storage** every time test accuracy improves. The previous best is deleted so only one copy is kept.
+Every epoch, two files are saved to Oracle Object Storage:
+- `best.pth` — best test accuracy so far (use this to deploy)
+- `last.pth` — latest checkpoint (use this to resume if training is interrupted)
 
-Saved to:
+Bucket layout:
 ```
-bloomi-training-data/trained-models/dinobloom_g_epoch<N>_acc<X>.pth
+bloomi-training-data/
+  trained-models/
+    unc-h200/
+      job<SLURM_ID>_<date>/
+        best.pth
+        last.pth
+    oracle-a100/
+      <date>/
+        best.pth
+        last.pth
 ```
 
-Download to your Mac when training is done:
+Download to your Mac:
 ```bash
+# Best model (UNC run)
 oci os object get \
   --namespace idcsxwupyymi \
   --bucket-name bloomi-training-data \
-  --name "trained-models/<filename>.pth" \
-  --file ~/Downloads/dinobloom_finetuned.pth
+  --name "trained-models/unc-h200/job<ID>_<date>/best.pth" \
+  --file ~/Downloads/dinobloom_best.pth
+
+# Best model (Oracle run)
+oci os object get \
+  --namespace idcsxwupyymi \
+  --bucket-name bloomi-training-data \
+  --name "trained-models/oracle-a100/<date>/best.pth" \
+  --file ~/Downloads/dinobloom_best.pth
 ```
 
-Or browse the files at [Oracle Cloud Console](https://cloud.oracle.com) → Object Storage → `bloomi-training-data` → `trained-models/`
+Browse all runs at [Oracle Cloud Console](https://cloud.oracle.com) → Object Storage → `bloomi-training-data` → `trained-models/`
 
 ---
 
