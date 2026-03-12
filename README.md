@@ -78,8 +78,11 @@ bloomi-training-data/trained-models/dinobloom_g_leukemia_classifier_YYYYMMDD_HHM
 
 To download to your PC after training:
 ```bash
-aws s3 cp s3://bloomi-training-data/trained-models/<filename>.pth "C:\Users\19802\Downloads\bloomi extra\" \
-  --endpoint-url https://idcsxwupyymi.compat.objectstorage.us-ashburn-1.oraclecloud.com
+oci os object get \
+  --namespace idcsxwupyymi \
+  --bucket-name bloomi-training-data \
+  --name "trained-models/<filename>.pth" \
+  --file "C:\Users\19802\Downloads\bloomi extra\dinobloom_g_leukemia_classifier.pth"
 ```
 
 ## Notes
