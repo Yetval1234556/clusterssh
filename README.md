@@ -6,7 +6,7 @@ Scripts for connecting to GPU infrastructure and launching DinoBloom-G leukemia 
 
 | File | Description |
 |------|-------------|
-| `connect.bat` | Windows batch file to SSH into the UNC cluster |
+| `connect.sh` | Mac/Linux shell script to SSH into the UNC cluster |
 | `setup.sh` | One-time setup — pulls data, clones repo, sets up conda |
 | `train_unc_h200.sh` | SLURM job for UNC H200 cluster (2x H200, 96GB VRAM each) |
 | `train_oracle_a100.sh` | Direct training script for Oracle A100 VM (80GB VRAM) |
@@ -19,7 +19,11 @@ Multi-GPU training requires `train_efficientnet_b0_ddp.py` from [DinoModelsEXTRA
 ## UNC H200 Cluster
 
 ### 1. Connect
-Edit `connect.bat`, replace `YOUR_CLUSTER.unc.edu` with your cluster address, double-click to SSH in.
+Edit `connect.sh`, replace `YOUR_CLUSTER.unc.edu` with your cluster address, then run from Mac Terminal:
+```bash
+chmod +x connect.sh
+./connect.sh
+```
 
 ### 2. One-time setup
 ```bash
@@ -125,7 +129,7 @@ oci os object get \
   --namespace idcsxwupyymi \
   --bucket-name bloomi-training-data \
   --name "trained-models/<filename>.pth" \
-  --file "C:\Users\19802\Downloads\bloomi extra\dinobloom_g_finetuned.pth"
+  --file ~/Downloads/dinobloom_g_finetuned.pth
 ```
 
 ---
