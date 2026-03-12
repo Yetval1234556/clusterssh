@@ -64,6 +64,24 @@ tail -f logs/run_<job_id>.txt
 - CUDA 11.7+
 - SLURM scheduler
 
+## Retrieving the Trained Model
+
+After training completes, the model is **automatically uploaded** to Oracle Object Storage:
+
+```
+bloomi-training-data/trained-models/dinobloom_g_leukemia_classifier_YYYYMMDD_HHMMSS.pth
+```
+
+- The `trained-models/` prefix acts as a folder inside the `bloomi-training-data` bucket
+- Each run gets a unique timestamp so nothing is ever overwritten
+- Browse it in the [Oracle Cloud Console](https://cloud.oracle.com) → Object Storage → `bloomi-training-data` → `trained-models/`
+
+To download to your PC after training:
+```bash
+aws s3 cp s3://bloomi-training-data/trained-models/<filename>.pth "C:\Users\19802\Downloads\bloomi extra\" \
+  --endpoint-url https://idcsxwupyymi.compat.objectstorage.us-ashburn-1.oraclecloud.com
+```
+
 ## Notes
 - DinoBloom-G pretrained weights (`DinoBloom-G.pth`, ~4.4GB) must be added to setup.sh — see the placeholder in step 4
 - Dataset is pulled from Oracle Object Storage (`bloomi-training-data` bucket, namespace `idcsxwupyymi`)
