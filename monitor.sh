@@ -5,10 +5,10 @@
 #
 # Usage:
 #   chmod +x monitor.sh
-#   ./monitor.sh unc    [job_id]   — monitor UNC H200 cluster
-#   ./monitor.sh oracle            — monitor Oracle A100 instance
-#   ./monitor.sh unc connect       — just SSH into UNC (no monitor)
-#   ./monitor.sh oracle connect    — just SSH into Oracle
+#   ./monitor.sh unc              — monitor UNC H200 cluster
+#   ./monitor.sh oracle           — monitor Oracle A100 instance
+#   ./monitor.sh unc connect      — just SSH into UNC (no monitor)
+#   ./monitor.sh oracle connect   — just SSH into Oracle
 
 # ── Config — update these ──────────────────────────────────────────────────────
 UNC_HOST="YOUR_CLUSTER.unc.edu"
@@ -19,7 +19,15 @@ REFRESH=10   # seconds between monitor refreshes
 # ──────────────────────────────────────────────────────────────────────────────
 
 TARGET=${1:-unc}
-MODE=${2:-monitor}
+
+# Parse $2: "connect" means connect mode, anything else is a SLURM job ID
+JOB_ID=""
+MODE="monitor"
+if [ "${2}" = "connect" ]; then
+    MODE="connect"
+elif [ -n "${2}" ]; then
+    JOB_ID=${2}
+fi
 
 if [ "$TARGET" = "oracle" ]; then
     HOST=$ORACLE_HOST
@@ -30,8 +38,6 @@ else
     SSH_USER=$UNC_USER
     SCRATCH="/scratch/\$USER/bloomi"
 fi
-
-JOB_ID=${2:-""}
 
 # ── SSH options for resilience ─────────────────────────────────────────────────
 SSH_OPTS="-o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ConnectTimeout=10"
@@ -72,7 +78,7 @@ while true; do
         echo "--- GPU Status ---"
         nvidia-smi --query-gpu=name,utilization.gpu,utilization.memory,memory.used,memory.free,temperature.gpu,power.draw \
             --format=csv,noheader,nounits 2>/dev/null | \
-            awk -F',' '{printf "  GPU: %-20s | Util: %s%% | Mem: %s/%s MB | Temp: %s°C | Power: %sW\n", \$1,\$2,\$4,\$3+\$4,\$5,\$6}'
+            awk -F',' '{printf "  GPU: %-20s | Util: %s%% | Mem: %s/%s MB | Temp: %s°C | Power: %sW\n", \$1,\$2,\$4,(\$4+\$5),\$6,\$7}'
 
         echo ""
         echo "--- Training Metrics ---"
@@ -93,12 +99,10 @@ while true; do
 
         echo ""
         echo "--- Recent Log ---"
-        LATEST=\$(ls -t \$SCRATCH/logs/run_*.txt 2>/dev/null | head -1)
+        LATEST=\$(ls -t \$SCRATCH/logs/dino_*.out \$SCRATCH/logs/*.out \$SCRATCH/logs/run_*.txt 2>/dev/null | head -1)
         if [ -n "\$LATEST" ]; then
             echo "  (\$LATEST)"
             tail -15 "\$LATEST"
-        elif [ -f "\$SCRATCH/logs/dino_\$(ls \$SCRATCH/logs/ 2>/dev/null | grep dino | head -1 | cut -d_ -f2 | cut -d. -f1).out" ]; then
-            tail -15 "\$SCRATCH/logs/\$(ls -t \$SCRATCH/logs/*.out 2>/dev/null | head -1)"
         else
             echo "  No log file yet."
         fi

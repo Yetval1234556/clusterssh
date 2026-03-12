@@ -22,7 +22,12 @@ NGPUS=${1:-8}
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
-# source $HOME/miniconda3/etc/profile.d/conda.sh  # uncomment if needed
+# Source conda init from common locations (needed in non-interactive SLURM shells)
+for f in "$HOME/miniconda3/etc/profile.d/conda.sh" \
+          "$HOME/anaconda3/etc/profile.d/conda.sh" \
+          "/opt/conda/etc/profile.d/conda.sh"; do
+    [ -f "$f" ] && source "$f" && break
+done
 conda activate dinov2
 
 SCRATCH=/scratch/$USER/bloomi
@@ -48,13 +53,12 @@ echo ""
 # ── Distributed setup ─────────────────────────────────────────────────────────
 export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 export MASTER_PORT=29500
-NUM_GPUS=$(nvidia-smi -L | wc -l)
-export WORLD_SIZE=$((SLURM_NNODES * NUM_GPUS))
+export WORLD_SIZE=$((SLURM_NNODES * NGPUS))
 
 echo "Master Addr : $MASTER_ADDR"
 echo "Master Port : $MASTER_PORT"
 echo "World Size  : $WORLD_SIZE"
-echo "GPUs/Node   : $NUM_GPUS"
+echo "GPUs/Node   : $NGPUS"
 echo ""
 
 # ── Background GPU monitor (every 30s) ────────────────────────────────────────
@@ -79,7 +83,7 @@ else
     echo "Effective batch size: $((64 * NGPUS)) (64 per GPU x $NGPUS GPUs)"
     srun torchrun \
         --nnodes=$SLURM_NNODES \
-        --nproc_per_node=$NUM_GPUS \
+        --nproc_per_node=$NGPUS \
         --rdzv_id=$SLURM_JOB_ID \
         --rdzv_backend=c10d \
         --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \

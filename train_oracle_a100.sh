@@ -19,7 +19,7 @@ TMUX_SESSION="dinobloom"
 if [ -z "$TMUX" ]; then
     echo "Launching training inside tmux session '$TMUX_SESSION'..."
     echo "Reconnect anytime with: tmux attach -t $TMUX_SESSION"
-    tmux new-session -d -s $TMUX_SESSION "bash $0 $@ --in-tmux"
+    tmux new-session -d -s $TMUX_SESSION "bash $0 $@"
     echo "Training running in background. Safe to close this terminal."
     exit 0
 fi
@@ -28,10 +28,15 @@ set -e
 
 NGPUS=${1:-1}
 SCRATCH=$HOME/bloomi
-DATA_DIR="$SCRATCH/New Data/extracted"
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
+# Source conda init from common locations (needed in some shells)
+for f in "$HOME/miniconda3/etc/profile.d/conda.sh" \
+          "$HOME/anaconda3/etc/profile.d/conda.sh" \
+          "/opt/conda/etc/profile.d/conda.sh"; do
+    [ -f "$f" ] && source "$f" && break
+done
 conda activate dinov2
 
 cd $SCRATCH

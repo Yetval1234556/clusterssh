@@ -1,51 +1,91 @@
 #!/bin/bash
-# ── UNC Cluster Setup & Training Script ───────────────────────────────────────
+# ── UNC Cluster Setup Script ───────────────────────────────────────────────────
 # Usage: bash setup.sh
-# Run this once after SSHing into the cluster to set up and launch training.
+# Run this once after SSHing into the cluster to set up the environment.
+
+set -e
 
 CLUSTER_USER=$USER
 SCRATCH=/scratch/$CLUSTER_USER
 REPO_URL="https://github.com/Yetval1234556/DinoModelsEXTRA"
-ORACLE_ENDPOINT="https://idcsxwupyymi.compat.objectstorage.us-ashburn-1.oraclecloud.com"
 ORACLE_BUCKET="bloomi-training-data"
-AWS_ACCESS_KEY="1b37303fea13e610d55230c34d828d39ec85c7af"
-AWS_SECRET_KEY="50Patf4/wPWycN35HGK17JboDTHd+3T0/90nfQNU3x0="
+ORACLE_NAMESPACE="idcsxwupyymi"
+ORACLE_REGION="us-ashburn-1"
+OCI_USER="ocid1.user.oc1..aaaaaaaa62h4eh56dbwmetzvjnqmhpc6to4horuxtfwmauhjk6dqckzhkjza"
+OCI_TENANCY="ocid1.tenancy.oc1..aaaaaaaaxz235iw5sjl4jhzu7xuo6rcasflfxyrrx4h6murstpvh6c6chlfq"
+OCI_FINGERPRINT="4d:5e:8f:86:13:55:c7:83:4b:04:2e:3e:9b:1a:2c:c9"
 
 echo "=== Setting up DinoBloom-G training on cluster ==="
+echo "User    : $CLUSTER_USER"
+echo "Scratch : $SCRATCH"
+echo ""
 
-# 1. Configure Oracle S3 credentials
-echo "[1/6] Configuring Oracle Object Storage credentials..."
-aws configure set aws_access_key_id $AWS_ACCESS_KEY
-aws configure set aws_secret_access_key $AWS_SECRET_KEY
-aws configure set region us-ashburn-1
+# 1. Configure OCI CLI
+echo "[1/6] Configuring OCI CLI..."
+mkdir -p ~/.oci
+
+# Copy your OCI API private key to the cluster first:
+#   scp ~/.oci/oci_api_key.pem YOUR_CLUSTER.unc.edu:~/.oci/oci_api_key.pem
+# Then this config will work:
+cat > ~/.oci/config << EOF
+[DEFAULT]
+user=${OCI_USER}
+fingerprint=${OCI_FINGERPRINT}
+tenancy=${OCI_TENANCY}
+region=${ORACLE_REGION}
+key_file=${HOME}/.oci/oci_api_key.pem
+EOF
+chmod 600 ~/.oci/config
+oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: OCI CLI auth failed — check ~/.oci/oci_api_key.pem"
 
 # 2. Clone the repo
 echo "[2/6] Cloning repository..."
+mkdir -p $SCRATCH
 cd $SCRATCH
-git clone $REPO_URL bloomi
-cd bloomi
+if [ -d "bloomi/.git" ]; then
+    echo "  Repo exists, updating..."
+    cd bloomi && git pull
+else
+    git clone $REPO_URL bloomi
+    cd bloomi
+fi
 
-# 3. Pull dataset from Oracle Object Storage
+# 3. Pull dataset from Oracle Object Storage using OCI CLI
 echo "[3/6] Downloading dataset from Oracle Object Storage (~10GB)..."
-mkdir -p $SCRATCH/bloomi/New\ Data/extracted
-aws s3 cp s3://$ORACLE_BUCKET/extracted/ "$SCRATCH/bloomi/New Data/extracted/" \
-    --recursive \
-    --endpoint-url $ORACLE_ENDPOINT
+mkdir -p "$SCRATCH/bloomi/New Data/extracted"
+oci os object bulk-download \
+    --namespace $ORACLE_NAMESPACE \
+    --bucket-name $ORACLE_BUCKET \
+    --download-dir "$SCRATCH/bloomi/New Data/extracted" \
+    --prefix "extracted/" \
+    --overwrite
+echo "  Dataset downloaded."
 
 # 4. Download DinoBloom-G pretrained weights
 echo "[4/6] Downloading DinoBloom-G pretrained weights (~4.4GB)..."
-# Place your DinoBloom-G.pth download command here
-# e.g. wget or aws s3 cp if uploaded to Oracle
-# wget -O DinoBloom-G.pth <URL>
+oci os object get \
+    --namespace $ORACLE_NAMESPACE \
+    --bucket-name $ORACLE_BUCKET \
+    --name "DinoBloom-G.pth" \
+    --file "$SCRATCH/bloomi/DinoBloom-G.pth"
+echo "  Weights downloaded."
 
 # 5. Set up conda environment
 echo "[5/6] Setting up conda environment..."
 module load conda 2>/dev/null || true
-conda env create -f conda.yaml -n dinov2 || conda env update -f conda.yaml -n dinov2
-conda activate dinov2
+# Source conda init from common locations (needed in non-interactive shells)
+for f in "$HOME/miniconda3/etc/profile.d/conda.sh" \
+          "$HOME/anaconda3/etc/profile.d/conda.sh" \
+          "/opt/conda/etc/profile.d/conda.sh"; do
+    [ -f "$f" ] && source "$f" && break
+done
+conda env create -f conda.yaml -n dinov2 2>/dev/null || conda env update -f conda.yaml -n dinov2
+echo "  Conda env ready."
 
-# 6. Submit training job
-echo "[6/6] Submitting SLURM job..."
-sbatch train_cluster.sh
-
-echo "=== Done! Check job status with: squeue -u $USER ==="
+# 6. Ready to submit
+echo "[6/6] Setup complete — submit your training job:"
+echo "  sbatch train_unc_h200.sh       (8x H200, recommended)"
+echo "  sbatch train_unc_h200.sh 1     (single H200)"
+echo ""
+echo "Monitor with: squeue -u $USER"
+echo "View logs  : tail -f $SCRATCH/bloomi/logs/dino_<jobid>.out"
