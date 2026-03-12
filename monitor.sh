@@ -1,54 +1,33 @@
 #!/bin/bash
 # ── DinoBloom-G Remote Monitor ─────────────────────────────────────────────────
-# Run this on your Mac to monitor GPU training progress remotely.
+# Run this on your Mac/PC to monitor GPU training progress remotely.
 # Automatically reconnects if your internet drops.
 #
 # Usage:
 #   chmod +x monitor.sh
-#   ./monitor.sh unc              — monitor UNC H200 cluster
-#   ./monitor.sh oracle           — monitor Oracle A100 instance
-#   ./monitor.sh unc connect      — just SSH into UNC (no monitor)
-#   ./monitor.sh oracle connect   — just SSH into Oracle
+#   ./monitor.sh              — monitor H200 cluster
+#   ./monitor.sh connect      — just SSH into cluster (no monitor)
 
-# ── Config — update these ──────────────────────────────────────────────────────
-UNC_HOST="login-01.ncshare.org"
-UNC_USER="rpatel1"
-ORACLE_HOST="YOUR_ORACLE_INSTANCE_IP"
-ORACLE_USER="opc"
-REFRESH=10   # seconds between monitor refreshes
+# ── Config ─────────────────────────────────────────────────────────────────────
+CLUSTER_HOST="login-01.ncshare.org"
+CLUSTER_USER="rpatel1"
+SCRATCH="/hpc/home/rpatel1/bloomi"
+REFRESH=10
 # ──────────────────────────────────────────────────────────────────────────────
 
-TARGET=${1:-unc}
-
-# Parse $2: "connect" means connect mode, anything else is a SLURM job ID
-JOB_ID=""
 MODE="monitor"
-if [ "${2}" = "connect" ]; then
+if [ "${1}" = "connect" ]; then
     MODE="connect"
-elif [ -n "${2}" ]; then
-    JOB_ID=${2}
 fi
 
-if [ "$TARGET" = "oracle" ]; then
-    HOST=$ORACLE_HOST
-    SSH_USER=$ORACLE_USER
-    SCRATCH="\$HOME/bloomi"
-else
-    HOST=$UNC_HOST
-    SSH_USER=$UNC_USER
-    SCRATCH="/hpc/home/\$USER/bloomi"
-fi
-
-# ── SSH options for resilience ─────────────────────────────────────────────────
 SSH_OPTS="-o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o ConnectTimeout=10"
 
-# ── Just connect mode ──────────────────────────────────────────────────────────
+# ── Connect mode ───────────────────────────────────────────────────────────────
 if [ "$MODE" = "connect" ]; then
-    echo "Connecting to $SSH_USER@$HOST..."
+    echo "Connecting to $CLUSTER_USER@$CLUSTER_HOST..."
     while true; do
-        ssh $SSH_OPTS $SSH_USER@$HOST
-        EXIT=$?
-        [ $EXIT -eq 0 ] && break
+        ssh $SSH_OPTS $CLUSTER_USER@$CLUSTER_HOST
+        [ $? -eq 0 ] && break
         echo "Connection lost. Reconnecting in 5s... (Ctrl+C to stop)"
         sleep 5
     done
@@ -58,7 +37,7 @@ fi
 # ── Monitor mode ───────────────────────────────────────────────────────────────
 echo "========================================================"
 echo "  DinoBloom-G Training Monitor"
-echo "  Target  : $TARGET ($SSH_USER@$HOST)"
+echo "  Host    : $CLUSTER_USER@$CLUSTER_HOST"
 echo "  Refresh : every ${REFRESH}s"
 echo "  Ctrl+C  to stop"
 echo "========================================================"
@@ -68,10 +47,10 @@ while true; do
     clear
     echo "========================================================"
     echo "  DinoBloom-G — $(date)"
-    echo "  $TARGET | $SSH_USER@$HOST"
+    echo "  $CLUSTER_USER@$CLUSTER_HOST"
     echo "========================================================"
 
-    ssh $SSH_OPTS $SSH_USER@$HOST bash << REMOTE
+    ssh $SSH_OPTS $CLUSTER_USER@$CLUSTER_HOST bash << REMOTE
         SCRATCH=$SCRATCH
 
         echo ""
@@ -81,25 +60,26 @@ while true; do
             awk -F',' '{printf "  GPU: %-20s | Util: %s%% | Mem: %s/%s MB | Temp: %s°C | Power: %sW\n", \$1,\$2,\$4,(\$4+\$5),\$6,\$7}'
 
         echo ""
+        echo "--- SLURM Jobs ---"
+        squeue -u \$USER
+
+        echo ""
         echo "--- Training Metrics ---"
         if [ -f "\$SCRATCH/training_metrics.csv" ]; then
-            echo ""
             column -t -s',' "\$SCRATCH/training_metrics.csv"
-            echo ""
             LAST=\$(tail -1 "\$SCRATCH/training_metrics.csv")
             EPOCH=\$(echo \$LAST | cut -d',' -f1)
             TRAIN=\$(echo \$LAST | cut -d',' -f3)
             TEST=\$(echo \$LAST | cut -d',' -f4)
             BEST=\$(echo \$LAST | cut -d',' -f6)
-            TS=\$(echo \$LAST | cut -d',' -f7)
-            echo "  Latest → Epoch: \$EPOCH | Train: \${TRAIN}% | Test: \${TEST}% | Best: \${BEST}% | \$TS"
+            echo "  Latest → Epoch: \$EPOCH | Train: \${TRAIN}% | Test: \${TEST}% | Best: \${BEST}%"
         else
-            echo "  No metrics yet — training may still be starting up."
+            echo "  No metrics yet."
         fi
 
         echo ""
         echo "--- Recent Log ---"
-        LATEST=\$(ls -t \$SCRATCH/logs/dino_*.out \$SCRATCH/logs/*.out \$SCRATCH/logs/run_*.txt 2>/dev/null | head -1)
+        LATEST=\$(ls -t \$SCRATCH/logs/dino_*.out 2>/dev/null | head -1)
         if [ -n "\$LATEST" ]; then
             echo "  (\$LATEST)"
             tail -15 "\$LATEST"

@@ -2,21 +2,21 @@
 setlocal
 
 :: ── Config ────────────────────────────────────────────────────────────────────
-set ORACLE_HOST=YOUR_ORACLE_INSTANCE_IP
-set ORACLE_USER=opc
+set CLUSTER_HOST=login-01.ncshare.org
+set CLUSTER_USER=rpatel1
 :: ──────────────────────────────────────────────────────────────────────────────
 
 :: Usage: .\setup.bat
-:: Copies setup.sh to Oracle VM and runs it there.
+:: Copies setup.sh to the cluster and runs it.
 
 set SCRIPTDIR=%~dp0
 
-echo Copying setup.sh to Oracle VM...
-scp "%SCRIPTDIR%setup.sh" %ORACLE_USER%@%ORACLE_HOST%:~/setup.sh
+echo Copying scripts to cluster...
+scp "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" %CLUSTER_USER%@%CLUSTER_HOST%:~/
 if errorlevel 1 (
-    echo ERROR: SCP failed. Check ORACLE_HOST is set correctly in setup.bat.
+    echo ERROR: SCP failed. Check CLUSTER_HOST and CLUSTER_USER in setup.bat.
     exit /b 1
 )
 
-echo Running setup on Oracle VM...
-ssh -o ConnectTimeout=10 %ORACLE_USER%@%ORACLE_HOST% "sed -i 's/\r//' ~/setup.sh && bash ~/setup.sh"
+echo Running setup on cluster...
+ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST% "sed -i 's/\r//' ~/setup.sh && bash ~/setup.sh"
