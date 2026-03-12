@@ -1,13 +1,9 @@
 # clusterssh
 
-Scripts for running DinoBloom-G leukemia classifier training on remote GPU servers.
+Scripts for running DinoBloom-G leukemia classifier training on an Oracle A100 GPU server.
 Works on **Mac** (`.sh`) and **Windows** (`.bat`).
 
 Cluster: `rpatel1@ncshare.login.org`
-
-Supports two environments:
-- **UNC H200 cluster** — 8x H200 GPUs, managed by SLURM job scheduler
-- **Oracle A100 VM** — 1-2x A100 GPUs, runs directly (no job scheduler)
 
 ---
 
@@ -16,67 +12,27 @@ Supports two environments:
 | Mac | Windows | What it does |
 |-----|---------|--------------|
 | `monitor.sh` | `monitor.bat` | Run locally — live GPU stats and training progress. Auto-reconnects if internet drops. |
-| `setup.sh` | `setup.bat` | Run once — SCPs setup script to cluster and runs it (downloads dataset, weights, sets up conda). |
-| `train_unc_h200.sh` | `train_unc_h200.bat` | Submits training job to UNC SLURM scheduler. |
+| `setup.sh` | `setup.bat` | Run once — sets up OCI, downloads dataset + weights, installs conda env on Oracle VM. |
 | `train_oracle_a100.sh` | `train_oracle_a100.bat` | Starts training on Oracle VM inside tmux (keeps running if you disconnect). |
 | `_monitor_remote.sh` | *(companion to monitor.bat)* | Remote bash commands piped over SSH — keep in same folder as `monitor.bat`. |
 
 ---
 
-## Step 0 — SCP scripts to the server
+## Step 0 — SCP scripts to Oracle VM
 
-Before running anything on the cluster, copy the scripts over from your local machine.
+Copy the scripts to your Oracle VM before running them.
 
 **Mac / Linux:**
 ```bash
-scp setup.sh train_unc_h200.sh train_oracle_a100.sh rpatel1@ncshare.login.org:~/
+scp setup.sh train_oracle_a100.sh opc@YOUR_ORACLE_INSTANCE_IP:~/
 ```
 
-**Windows (Command Prompt):**
+**Windows (Command Prompt or PowerShell):**
 ```cmd
-scp setup.sh train_unc_h200.sh train_oracle_a100.sh rpatel1@ncshare.login.org:/home/rpatel1/
+scp setup.sh train_oracle_a100.sh opc@YOUR_ORACLE_INSTANCE_IP:/home/opc/
 ```
 
-> For Oracle, update `ORACLE_HOST` in `monitor.sh` / `monitor.bat` with your VM's public IP.
-
----
-
-## UNC H200
-
-### Mac
-
-**Step 1 — Run setup on the cluster (first time only):**
-```bash
-ssh rpatel1@ncshare.login.org
-bash ~/setup.sh
-```
-
-**Step 2 — Submit the training job (still on the cluster):**
-```bash
-sbatch ~/train_unc_h200.sh        # 8x H200 (recommended)
-sbatch ~/train_unc_h200.sh 1      # 1x H200
-```
-
-**Step 3 — Monitor from your Mac:**
-```bash
-./monitor.sh unc                  # live dashboard
-./monitor.sh unc connect          # plain SSH into cluster
-```
-
-### Windows
-
-**Steps 1 & 2 are handled automatically by the .bat files — run from Command Prompt:**
-```cmd
-setup.bat                         # SCPs setup.sh and runs it on the cluster
-train_unc_h200.bat                # SCPs train script and submits with sbatch
-train_unc_h200.bat 1              # 1x H200
-```
-
-**Step 3 — Monitor:**
-```cmd
-monitor.bat unc                   # live dashboard
-monitor.bat unc connect           # plain SSH into cluster
-```
+> Replace `YOUR_ORACLE_INSTANCE_IP` with your Oracle VM's public IP. Also update `ORACLE_HOST` in `monitor.sh` / `monitor.bat`.
 
 ---
 
@@ -86,11 +42,11 @@ monitor.bat unc connect           # plain SSH into cluster
 
 **Step 1 — Run setup on the VM (first time only):**
 ```bash
-ssh opc@<instance-ip>
+ssh opc@YOUR_ORACLE_INSTANCE_IP
 bash ~/setup.sh
 ```
 
-**Step 2 — Start training (still on the VM):**
+**Step 2 — Start training:**
 ```bash
 bash ~/train_oracle_a100.sh 1     # 1x A100 80GB
 bash ~/train_oracle_a100.sh 2     # 2x A100
@@ -103,27 +59,40 @@ Training runs inside tmux automatically — safe to close the terminal.
 ./monitor.sh oracle connect       # plain SSH into Oracle VM
 ```
 
-**If your Mac lost internet and training is still running:**
+**If you got disconnected and training is still running:**
 ```bash
-ssh opc@<instance-ip>
+ssh opc@YOUR_ORACLE_INSTANCE_IP
 tmux attach -t dinobloom
 ```
 
+---
+
 ### Windows
 
+**Step 1 — Update your Oracle IP** in `setup.bat` and `monitor.bat` (`ORACLE_HOST=...`).
+
+**Step 2 — Run setup (SCPs and runs setup.sh on Oracle automatically):**
 ```cmd
-setup.bat                         # (edit ORACLE_HOST in setup.bat first)
-train_oracle_a100.bat             # 1x A100
-train_oracle_a100.bat 2           # 2x A100
-monitor.bat oracle                # live dashboard
-monitor.bat oracle connect        # plain SSH
+.\setup.bat
+```
+
+**Step 3 — Start training:**
+```cmd
+.\train_oracle_a100.bat           # 1x A100
+.\train_oracle_a100.bat 2         # 2x A100
+```
+
+**Step 4 — Monitor:**
+```cmd
+.\monitor.bat oracle              # live dashboard
+.\monitor.bat oracle connect      # plain SSH
 ```
 
 **If you got disconnected and training is still running:**
 ```cmd
-ssh opc@<instance-ip>
+ssh opc@YOUR_ORACLE_INSTANCE_IP
 ```
-Then on the server: `tmux attach -t dinobloom`
+Then on the VM: `tmux attach -t dinobloom`
 
 ---
 
@@ -137,26 +106,14 @@ Bucket layout:
 ```
 bloomi-training-data/
   trained-models/
-    unc-h200/
-      job<SLURM_ID>_<date>/
-        best.pth
-        last.pth
     oracle-a100/
       <date>/
         best.pth
         last.pth
 ```
 
-Download to your Mac when done:
+Download when done:
 ```bash
-# UNC run
-oci os object get \
-  --namespace idcsxwupyymi \
-  --bucket-name bloomi-training-data \
-  --name "trained-models/unc-h200/job<ID>_<date>/best.pth" \
-  --file ~/Downloads/dinobloom_best.pth
-
-# Oracle run
 oci os object get \
   --namespace idcsxwupyymi \
   --bucket-name bloomi-training-data \
@@ -170,7 +127,8 @@ Browse all runs at [Oracle Cloud Console](https://cloud.oracle.com) → Object S
 
 ## Requirements
 
-- **SSH / SCP** — built into Mac/Linux. On Windows, built into Windows 10/11 (open CMD and type `ssh` to verify).
-- **OCI CLI** — install on the cluster: `pip install oci-cli` (credentials are hardcoded in `setup.sh`, no key file needed)
-- **conda** — `setup.sh` creates the `dinov2` environment automatically on the cluster
+- **SSH / SCP** — built into Mac/Linux. On Windows 10/11, built in — open CMD/PowerShell and type `ssh` to verify.
+- **Always use `.\` in PowerShell** when running `.bat` files (e.g. `.\setup.bat`, `.\monitor.bat oracle`).
+- **OCI CLI** — installed automatically by `setup.sh` on the Oracle VM. Credentials are hardcoded — no key file needed.
+- **conda** — installed automatically by `setup.sh` if not already present.
 - **tmux** — on Oracle VM, usually pre-installed. If not: `sudo yum install -y tmux`
