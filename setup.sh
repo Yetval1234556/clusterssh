@@ -144,37 +144,79 @@ else
     echo "  Make sure setup.bat completed successfully before running the training job."
 fi
 
-# 3. Pull dataset from Oracle Object Storage
+# 3. Pull dataset — Oracle first, Google Drive fallback
 echo "[3/5] Checking dataset..."
 mkdir -p "$SCRATCH/New Data/extracted"
-DATASET_COUNT=$(find "$SCRATCH/New Data/extracted" -name "*.jpg" 2>/dev/null | wc -l)
+
+DATASET_COUNT=$(find "$SCRATCH/New Data/extracted" -name "*.jpg" -o -name "*.bmp" -o -name "*.png" 2>/dev/null | wc -l)
+echo "  Images already in extracted/: $DATASET_COUNT"
+
 if [ "$DATASET_COUNT" -gt 1000 ]; then
     echo "  Dataset already present ($DATASET_COUNT images) — skipping download."
 else
-    echo "  Downloading dataset from Oracle (~10GB)..."
-    oci os object bulk-download \
+    echo "  Dataset not found or incomplete — fetching..."
+    echo ""
+
+    # Try Oracle first (fastest — same cloud provider, free egress)
+    ORACLE_KEY=$(oci os object list \
         --namespace $ORACLE_NAMESPACE \
         --bucket-name $ORACLE_BUCKET \
-        --download-dir "$SCRATCH/New Data/extracted" \
-        --prefix "extracted/" \
-        --overwrite
-    echo "  Dataset downloaded."
+        --prefix "extracted/main_dataset" \
+        --query "data[0].name" --raw-output 2>/dev/null || echo "")
+
+    if [ -n "$ORACLE_KEY" ] && [ "$ORACLE_KEY" != "null" ]; then
+        echo "  Found in Oracle: $ORACLE_KEY"
+        echo "  Downloading from Oracle..."
+        EXT="${ORACLE_KEY##*.}"
+        DEST="$SCRATCH/New Data/main_dataset.$EXT"
+        oci os object get \
+            --namespace $ORACLE_NAMESPACE \
+            --bucket-name $ORACLE_BUCKET \
+            --name "$ORACLE_KEY" \
+            --file "$DEST"
+        echo "  Downloaded: $(du -sh "$DEST" | cut -f1)"
+    else
+        echo "  Not in Oracle yet — downloading from Google Drive..."
+        echo "  Installing gdown if needed..."
+        pip install -q gdown 2>/dev/null || pip3 install -q gdown 2>/dev/null || true
+        cd "$SCRATCH/New Data"
+        gdown 1lLbicaSSUHDy0X9_o-XmareFf0rj2Bma
+        DEST=$(ls -t "$SCRATCH/New Data" | grep -v extracted | head -1)
+        DEST="$SCRATCH/New Data/$DEST"
+        echo "  Downloaded: $(du -sh "$DEST" | cut -f1)"
+    fi
+
+    # Extract based on file type
+    echo "  Extracting dataset..."
+    DEST_FILE=$(ls -t "$SCRATCH/New Data" | grep -v "extracted\|train.txt\|val.txt" | head -1)
+    DEST_PATH="$SCRATCH/New Data/$DEST_FILE"
+    echo "  File: $DEST_FILE"
+    case "$DEST_FILE" in
+        *.zip)         unzip -q "$DEST_PATH" -d "$SCRATCH/New Data/extracted/" ;;
+        *.tar.gz|*.tgz) tar -xzf "$DEST_PATH" -C "$SCRATCH/New Data/extracted/" ;;
+        *.tar.bz2)     tar -xjf "$DEST_PATH" -C "$SCRATCH/New Data/extracted/" ;;
+        *.tar)         tar -xf  "$DEST_PATH" -C "$SCRATCH/New Data/extracted/" ;;
+        *)             echo "  Unknown format — leaving as-is." ;;
+    esac
+    echo "  Extraction complete."
+
+    FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" -name "*.jpg" -o -name "*.bmp" -o -name "*.png" 2>/dev/null | wc -l)
+    echo "  Total images in extracted/: $FINAL_COUNT"
 fi
 
-# 4. Download DinoBloom-G pretrained weights
+# 4. Download DinoBloom-G pretrained weights (from Google Drive)
+DINOBLOOM_GDRIVE_ID="1lLbicaSSUHDy0X9_o-XmareFf0rj2Bma"
 echo "[4/5] Checking DinoBloom-G weights..."
 WEIGHTS_SIZE=$(stat -c%s "$SCRATCH/DinoBloom-G.pth" 2>/dev/null || echo 0)
 if [ "$WEIGHTS_SIZE" -gt 104857600 ]; then  # must be >100MB to be valid
     echo "  Weights already present ($(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)) — skipping download."
 else
     [ "$WEIGHTS_SIZE" -gt 0 ] && echo "  Existing weights file is too small ($WEIGHTS_SIZE bytes) — redownloading..."
-    echo "  Downloading DinoBloom-G weights (~4.4GB)..."
+    echo "  Downloading DinoBloom-G weights from Google Drive..."
+    echo "  File ID: $DINOBLOOM_GDRIVE_ID"
     rm -f "$SCRATCH/DinoBloom-G.pth"
-    oci os object get \
-        --namespace $ORACLE_NAMESPACE \
-        --bucket-name $ORACLE_BUCKET \
-        --name "trained-models/dinobloom/dinobloom_g_finetuned.pth" \
-        --file "$SCRATCH/DinoBloom-G.pth"
+    pip install -q gdown 2>/dev/null || true
+    gdown "$DINOBLOOM_GDRIVE_ID" -O "$SCRATCH/DinoBloom-G.pth"
     echo "  Weights downloaded: $(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)"
 fi
 

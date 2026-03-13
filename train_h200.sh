@@ -19,7 +19,6 @@
 set -e
 
 NGPUS=${1:-1}
-WORKERS=$((NGPUS * 8))  # 8 workers per GPU — scales with GPU count
 RUN_DATE=$(date +%Y%m%d_%H%M%S)
 OCI_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}"
 OCI_NS="idcsxwupyymi"
@@ -32,6 +31,69 @@ source "$HOME/dinov2_venv/bin/activate"
 SCRATCH=/hpc/home/$USER/bloomi
 cd $SCRATCH
 mkdir -p logs output
+
+# ── Adaptive hyperparameters based on dataset size ────────────────────────────
+echo "╔══════════════════════════════════════════════════════════════════════════╗"
+echo "║  BLOOM — Counting dataset to adapt training hyperparameters...          ║"
+echo "╚══════════════════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Count all images across all sources
+IMG_EXTRACTED=$(find "$SCRATCH/New Data/extracted" \
+    \( -name "*.jpg" -o -name "*.jpeg" -o -name "*.png" \
+       -o -name "*.bmp" -o -name "*.tif" -o -name "*.tiff" \) \
+    2>/dev/null | wc -l)
+
+TXT_TRAIN=0
+TXT_VAL=0
+[ -f "$SCRATCH/New Data/train.txt" ] && TXT_TRAIN=$(wc -l < "$SCRATCH/New Data/train.txt")
+[ -f "$SCRATCH/New Data/val.txt"   ] && TXT_VAL=$(wc -l   < "$SCRATCH/New Data/val.txt")
+TOTAL_IMAGES=$((IMG_EXTRACTED > (TXT_TRAIN + TXT_VAL) ? IMG_EXTRACTED : (TXT_TRAIN + TXT_VAL)))
+
+echo "  Images found (extracted dir) : $IMG_EXTRACTED"
+echo "  Images in train.txt          : $TXT_TRAIN"
+echo "  Images in val.txt            : $TXT_VAL"
+echo "  Total dataset size used      : $TOTAL_IMAGES"
+echo ""
+
+# ── Tier selection ─────────────────────────────────────────────────────────────
+if   [ "$TOTAL_IMAGES" -lt 5000 ]; then
+    TIER="Small"; EPOCHS=150; BATCH=32; UNFREEZE=2; BASE_WORKERS=8
+elif [ "$TOTAL_IMAGES" -lt 25000 ]; then
+    TIER="Medium-Small"; EPOCHS=100; BATCH=48; UNFREEZE=3; BASE_WORKERS=12
+elif [ "$TOTAL_IMAGES" -lt 75000 ]; then
+    TIER="Medium"; EPOCHS=75; BATCH=64; UNFREEZE=4; BASE_WORKERS=16
+elif [ "$TOTAL_IMAGES" -lt 200000 ]; then
+    TIER="Large"; EPOCHS=50; BATCH=96; UNFREEZE=5; BASE_WORKERS=16
+else
+    TIER="Very Large"; EPOCHS=30; BATCH=128; UNFREEZE=4; BASE_WORKERS=16
+fi
+
+# Multi-GPU: scale batch + workers, reduce epochs (larger effective batch converges faster)
+EFFECTIVE_BATCH=$((BATCH * NGPUS))
+if [ "$NGPUS" -gt 1 ]; then
+    EPOCHS=$((EPOCHS * 3 / 4))
+fi
+
+# Workers: scale with GPUs, cap at available CPUs - 4
+AVAIL_CPUS=$(nproc 2>/dev/null || echo 56)
+WORKERS=$((BASE_WORKERS * NGPUS))
+MAX_WORKERS=$(( AVAIL_CPUS - 4 ))
+[ "$WORKERS" -gt "$MAX_WORKERS" ] && WORKERS=$MAX_WORKERS
+[ "$WORKERS" -lt 4 ] && WORKERS=4
+
+echo "  ┌─────────────────────────────────────────────────────────────────────┐"
+echo "  │  ADAPTIVE HYPERPARAMETERS                                           │"
+echo "  ├─────────────────────────────────────────────────────────────────────┤"
+echo "  │  Dataset tier    : $TIER"
+printf "  │  Total images    : %'d\n" $TOTAL_IMAGES
+echo "  │  Epochs          : $EPOCHS"
+echo "  │  Batch / GPU     : $BATCH    →  Effective batch: $EFFECTIVE_BATCH  (${NGPUS}x GPU)"
+echo "  │  Workers         : $WORKERS  (of $AVAIL_CPUS CPUs available)"
+echo "  │  Unfreeze blocks : $UNFREEZE  of 40 DinoBloom-G transformer blocks"
+echo "  │  LR head/backbone: 1e-4 / 1e-5"
+echo "  └─────────────────────────────────────────────────────────────────────┘"
+echo ""
 
 # Copy epoch reporter into working dir so training scripts can import it
 cp "$HOME/epoch_report.py" "$SCRATCH/epoch_report.py" 2>/dev/null \
@@ -46,9 +108,10 @@ echo "  Job ID    : $SLURM_JOB_ID"
 echo "  Node      : $(hostname)"
 echo "  Date      : $(date)"
 echo "  GPUs      : ${NGPUS}x H200 (96GB VRAM each)"
-echo "  Batch/GPU : 64  |  Effective batch: $((64 * NGPUS))"
-echo "  Epochs    : 75  |  LR: 1e-4  |  Unfreeze: 4 blocks"
-echo "  Workers   : 224  |  Report every: 5 epochs"
+echo "  Dataset   : $TOTAL_IMAGES images  ($TIER tier)"
+echo "  Batch/GPU : $BATCH  |  Effective batch: $EFFECTIVE_BATCH"
+echo "  Epochs    : $EPOCHS  |  LR: 1e-4  |  Unfreeze: $UNFREEZE blocks"
+echo "  Workers   : $WORKERS  |  Report every: 5 epochs"
 echo "  Scratch   : $SCRATCH"
 echo "  Oracle    : oci://$OCI_BUCKET/$OCI_PREFIX"
 echo "========================================================"
@@ -109,11 +172,11 @@ echo ""
                 > /dev/null 2>&1 && BACKED_UP=1
         fi
 
-        if [ -f "$SCRATCH/dinobloom_g_finetuned.pth" ]; then
+        if [ -f "$SCRATCH/bloom_leukemia.pth" ]; then
             oci os object put \
                 --namespace $OCI_NS --bucket-name $OCI_BUCKET \
                 --name "$BACKUP_PREFIX/best_${TS}.pth" \
-                --file "$SCRATCH/dinobloom_g_finetuned.pth" --force \
+                --file "$SCRATCH/bloom_leukemia.pth" --force \
                 > /dev/null 2>&1
         fi
 
@@ -135,14 +198,14 @@ echo "========================================================"
 
 if [ "$NGPUS" -eq 1 ]; then
     python train_efficientnet_b0.py \
-        --epochs 75 \
-        --batch-size 64 \
-        --lr 1e-4 \
-        --unfreeze-blocks 4 \
-        --workers $WORKERS \
-        --report-every 5
+        --epochs        $EPOCHS \
+        --batch-size    $BATCH \
+        --lr            1e-4 \
+        --unfreeze-blocks $UNFREEZE \
+        --workers       $WORKERS \
+        --report-every  5
 else
-    echo "  DDP: torchrun across $NGPUS GPUs (effective batch $((64 * NGPUS)))"
+    echo "  DDP: torchrun across $NGPUS GPUs (effective batch $EFFECTIVE_BATCH)"
     srun torchrun \
         --nnodes=$SLURM_NNODES \
         --nproc_per_node=$NGPUS \
@@ -150,12 +213,12 @@ else
         --rdzv_backend=c10d \
         --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
         train_efficientnet_b0_ddp.py \
-            --epochs 75 \
-            --batch-size 64 \
-            --lr 1e-4 \
-            --unfreeze-blocks 4 \
-            --workers $WORKERS \
-            --report-every 5
+            --epochs        $EPOCHS \
+            --batch-size    $BATCH \
+            --lr            1e-4 \
+            --unfreeze-blocks $UNFREEZE \
+            --workers       $WORKERS \
+            --report-every  5
 fi
 
 # ── Stop background processes ─────────────────────────────────────────────────
@@ -176,7 +239,8 @@ echo "  Folder : $OCI_PREFIX"
 echo ""
 
 # Write a run_info.txt so each Oracle folder is self-describing
-BEST_SIZE=$(du -sh "$SCRATCH/dinobloom_g_finetuned.pth" 2>/dev/null | cut -f1 || echo "not found")
+BEST_SIZE=$(du -sh "$SCRATCH/bloom_leukemia.pth" 2>/dev/null | cut -f1 || echo "not found")
+# bloom_leukemia.pth = OUR fine-tuned output (built on top of original DinoBloom-G.pth)
 LAST_SIZE=$(du -sh "$SCRATCH/checkpoint_latest.pth" 2>/dev/null | cut -f1 || echo "not found")
 
 # Build per-5-epoch metrics table from training_metrics.csv
@@ -204,9 +268,10 @@ Goal        : Fine-tune DinoBloom-G (Vision Transformer, DINOv2-Giant backbone)
 Application : Early leukemia detection — model predicts malignant cell subtypes
               (Early, Pre, Pro, Blast) from bone marrow / peripheral blood smear
               images. Intended for clinical decision support.
-Base Model  : DinoBloom-G — a ViT-Giant pretrained on 13M+ pathology images,
-              specifically on hematology slides. Fine-tuned here on our curated
-              WBC malignancy dataset using EfficientNet-B0 classification head.
+Base Model  : DinoBloom-G (original) — ViT-Giant pretrained on 13M+ hematology
+              images. Downloaded from Google Drive. We build on top of this.
+Our Model   : bloom_leukemia.pth — DinoBloom-G with our leukemia classification
+              head and fine-tuned top blocks baked in. This is our output.
 Dataset     : WBC Malignancy Dataset (~10GB)
               Classes: Early, Pre, Pro, Blast (malignant subtypes)
               Source : Oracle bucket bloomi-training-data/extracted/
@@ -218,10 +283,11 @@ Date        : $RUN_DATE
 Node        : $(hostname)
 Cluster     : UNC ncshare H200 HPC
 GPUs        : ${NGPUS}x NVIDIA H200 (96GB VRAM each = $((96 * NGPUS))GB total)
-Epochs      : 75
-Batch/GPU   : 64  (effective batch: $((64 * NGPUS)))
+Dataset     : $TOTAL_IMAGES images  ($TIER tier)
+Epochs      : $EPOCHS  (auto-selected for dataset size)
+Batch/GPU   : $BATCH  (effective batch: $EFFECTIVE_BATCH)
 Learning Rate: 1e-4
-Unfreeze    : Last 4 blocks of DinoBloom-G backbone (rest frozen)
+Unfreeze    : Last $UNFREEZE blocks of DinoBloom-G backbone (rest frozen)
 Workers     : 224 dataloader workers
 Strategy    : DDP (DistributedDataParallel) via torchrun across $NGPUS GPUs
 
@@ -258,18 +324,18 @@ oci os object put \
 echo "  Uploaded → $OCI_PREFIX/run_info.txt"
 echo ""
 
-if [ -f "$SCRATCH/dinobloom_g_finetuned.pth" ]; then
-    SIZE=$(du -sh "$SCRATCH/dinobloom_g_finetuned.pth" | cut -f1)
+if [ -f "$SCRATCH/bloom_leukemia.pth" ]; then
+    SIZE=$(du -sh "$SCRATCH/bloom_leukemia.pth" | cut -f1)
     echo "  best.pth ($SIZE) → uploading..."
     oci os object put \
         --namespace $OCI_NS --bucket-name $OCI_BUCKET \
         --name "$OCI_PREFIX/best.pth" \
-        --file "$SCRATCH/dinobloom_g_finetuned.pth" --force
+        --file "$SCRATCH/bloom_leukemia.pth" --force
     echo "  Uploaded → $OCI_PREFIX/best.pth"
-    rm -f "$SCRATCH/dinobloom_g_finetuned.pth"
+    rm -f "$SCRATCH/bloom_leukemia.pth"
     echo "  Local copy removed."
 else
-    echo "  WARNING: dinobloom_g_finetuned.pth not found — skipping best upload"
+    echo "  WARNING: bloom_leukemia.pth not found — skipping best upload"
 fi
 
 if [ -f "$SCRATCH/checkpoint_latest.pth" ]; then

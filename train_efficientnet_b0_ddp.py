@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """
-Multi-GPU fine-tuning of DinoBloom-G using DistributedDataParallel.
+Multi-GPU leukemia classifier built on top of the original DinoBloom-G pretrained model.
+
+Input  (base): DinoBloom-G.pth  — original pretrained model (from Google Drive).
+               ViT-Giant trained on 13M+ hematology images. We do NOT modify this file.
+Output (ours): bloom_leukemia.pth — our model with the leukemia head baked in.
+
 Launch with:
-    torchrun --nproc_per_node=8 train_efficientnet_b0_ddp.py [args]
+    torchrun --nproc_per_node=4 train_efficientnet_b0_ddp.py [args]
 """
 
 import os
@@ -94,6 +99,23 @@ def is_main():
 # Dataset
 # ---------------------------------------------------------------------------
 
+def class_from_path(path: Path) -> str:
+    """
+    Extract class label using the C-NMC filename convention:
+        {patient_id}_{slide_id}_{image_id}_{CLASS}.ext
+        e.g.  4_7_400_ALL.bmp  →  ALL
+              UID_1_1_hem.bmp  →  hem
+
+    Falls back to parent folder name when the last underscore segment
+    is purely numeric or the filename has no underscores.
+    """
+    parts     = path.stem.split("_")
+    candidate = parts[-1]
+    if candidate and any(c.isalpha() for c in candidate):
+        return candidate
+    return path.parent.name
+
+
 def load_txt_samples(txt_path: Path):
     samples = []
     if not txt_path.exists():
@@ -104,7 +126,7 @@ def load_txt_samples(txt_path: Path):
             if not rel:
                 continue
             p = REPO_ROOT / rel
-            samples.append((p, p.parent.name))
+            samples.append((p, class_from_path(p)))
     return samples
 
 
@@ -112,12 +134,12 @@ def discover_samples(archive_dirs):
     samples = []
     for archive_dir in archive_dirs:
         for root, _, files in os.walk(archive_dir):
-            label = Path(root).name
-            if label in EXCLUDE_FOLDERS:
+            if Path(root).name in EXCLUDE_FOLDERS:
                 continue
             for fname in files:
                 if Path(fname).suffix.lower() in VALID_EXTS:
-                    samples.append((Path(root) / fname, label))
+                    fpath = Path(root) / fname
+                    samples.append((fpath, class_from_path(fpath)))
     return samples
 
 
@@ -328,7 +350,7 @@ def train(args):
 
     best_val_acc = 0.0
     start_epoch  = 1
-    out_path     = REPO_ROOT / "dinobloom_g_finetuned.pth"
+    out_path     = REPO_ROOT / "bloom_leukemia.pth"
     ckpt_path    = REPO_ROOT / "checkpoint_latest.pth"
     backup_dir   = REPO_ROOT / "backup"
     best_oracle_model = None
@@ -465,7 +487,7 @@ def train(args):
                     "test_acc"        : round(test_acc, 4),
                     "num_classes"     : num_classes,
                     "class_to_idx"    : class_to_idx,
-                    "arch"            : "dinobloom_g_finetuned",
+                    "arch"            : "bloom_leukemia",
                     "unfreeze_blocks" : args.unfreeze_blocks,
                     "model_state_dict": model.module.state_dict(),
                 }, str(out_path))
