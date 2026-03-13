@@ -24,9 +24,8 @@ set GDRIVE_URL=https://drive.google.com/drive/folders/1J5ld-tK6cewj9wXWUi3rs6Udl
 :: ──────────────────────────────────────────────────────────────────────────────
 
 set SCRIPTDIR=%~dp0
-set SSHCTL=%TEMP%\bloom-ssh-ctl
-set SSH=ssh -o ControlMaster=auto -o "ControlPath=%SSHCTL%" -o ControlPersist=600 %CLUSTER_USER%@%CLUSTER_HOST%
-set SCP=scp -o ControlMaster=auto -o "ControlPath=%SSHCTL%" -o ControlPersist=600
+set SSH=ssh %CLUSTER_USER%@%CLUSTER_HOST%
+set SCP=scp
 
 echo.
 echo  ╔═══════════════════════════════════════════════════════════════════════╗
