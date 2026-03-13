@@ -2,12 +2,11 @@
 #SBATCH --job-name=dinobloom-h200
 #SBATCH --output=/hpc/home/%u/bloomi/logs/dino_%j.out
 #SBATCH --error=/hpc/home/%u/bloomi/logs/dino_%j.err
-#SBATCH --partition=gpu_p
+#SBATCH --partition=gpu
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=56
-#SBATCH --gres=gpu:4
-#SBATCH --constraint=h200
+#SBATCH --gres=gpu:h200:4
 #SBATCH --mem=900G
 #SBATCH --time=96:00:00
 #SBATCH --nice=0
