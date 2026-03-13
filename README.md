@@ -63,8 +63,8 @@ This caches your SSH passphrase, SCPs the latest training scripts to the cluster
 
 ### Step 3 — Monitor
 ```cmd
-.\monitor.bat             REM live dashboard (GPU, queue, metrics, log tail)
-.\monitor.bat connect     REM plain SSH shell into cluster
+.\monitor.bat
+.\monitor.bat connect
 ```
 
 ---
