@@ -14,7 +14,6 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 |------|--------------|--------------|
 | `setup.bat` | Windows (local) | One-stop setup: caches SSH passphrase, SCPs everything to cluster, runs remote setup |
 | `train_h200.bat` | Windows (local) | SCPs latest training code to cluster, submits `sbatch` job |
-| `monitor.bat` | Windows (local) | Live dashboard — GPU stats, SLURM queue, training metrics, log tail |
 | `setup.sh` | Cluster (Linux) | One-time setup: installs OCI CLI, downloads dataset + weights from Oracle, sets up Python venv |
 | `train_h200.sh` | Cluster (SLURM) | Sbatch job: trains on H200 GPU(s), verbose epoch reports, uploads models to Oracle when done |
 | `train_efficientnet_b0.py` | Cluster (Python) | Single-GPU training script |
@@ -63,8 +62,8 @@ This caches your SSH passphrase, SCPs the latest training scripts to the cluster
 
 ### Step 3 — Monitor
 ```cmd
-.\monitor.bat
-.\monitor.bat connect
+ssh rpatel1@login-01.ncshare.org "squeue -u rpatel1"
+ssh rpatel1@login-01.ncshare.org "tail -f ~/bloomi/logs/dino_<JOBID>.out"
 ```
 
 ---
