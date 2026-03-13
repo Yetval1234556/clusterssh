@@ -4,7 +4,7 @@ setlocal
 :: ── Config ────────────────────────────────────────────────────────────────────
 set CLUSTER_HOST=login-01.ncshare.org
 set CLUSTER_USER=rpatel1
-set OCI_KEY=%~dp0..\yetvald@gmail.com-2026-03-13T02_48_12.614Z.pem
+set OCI_KEY=%~dp0yetvald@gmail.com-2026-03-13T02_48_12.614Z.pem
 :: ──────────────────────────────────────────────────────────────────────────────
 
 :: Usage: .\setup.bat
