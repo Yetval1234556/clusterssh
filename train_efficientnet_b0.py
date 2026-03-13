@@ -256,44 +256,44 @@ def train(args):
         print(f"GPU    : {torch.cuda.get_device_name(0)}")
         print(f"VRAM   : {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
-    # ── Data — ALL images go into training, nothing held out ──────────────
-    all_samples = []
+    # ── Data ──────────────────────────────────────────────────────────────
+    # archive5: use pre-defined 80/20 split from train.txt / val.txt
+    txt_train_samples = load_txt_samples(REPO_ROOT / "New Data" / "train.txt")
+    txt_val_samples   = load_txt_samples(REPO_ROOT / "New Data" / "val.txt")
+    print(f"\n[txt]  archive5  {len(txt_train_samples)} train + {len(txt_val_samples)} val (pre-split 80/20)")
 
-    # archive5: train.txt + val.txt both used for training
-    txt_train = load_txt_samples(REPO_ROOT / "New Data" / "train.txt")
-    txt_val   = load_txt_samples(REPO_ROOT / "New Data" / "val.txt")
-    all_samples.extend(txt_train)
-    all_samples.extend(txt_val)
-    print(f"\n[txt]  archive5  {len(txt_train)} train + {len(txt_val)} val = {len(txt_train)+len(txt_val)} total")
-
-    # archive6, 7, 8: every image used for training
+    # archive6, 7, 8: random 80/20 split (no pre-defined split available)
     extracted_root = REPO_ROOT / "New Data" / "extracted"
+    archive_samples = []
     for name in ["archive6", "archive7", "archive8"]:
         d = extracted_root / name
         if d.exists():
             found = discover_samples([d])
             print(f"[dir]  {name}  →  {len(found)} images")
-            all_samples.extend(found)
+            archive_samples.extend(found)
         else:
             print(f"[dir]  {name}  →  not found (skipping)")
 
-    if not all_samples:
+    random.seed(42)
+    random.shuffle(archive_samples)
+    archive_split  = int(len(archive_samples) * 0.8)
+    archive_train  = archive_samples[:archive_split]
+    archive_val    = archive_samples[archive_split:]
+    print(f"[dir]  archive6/7/8  →  {len(archive_train)} train + {len(archive_val)} val (random 80/20)")
+
+    train_samples = txt_train_samples + archive_train
+    test_samples  = txt_val_samples   + archive_val
+
+    if not train_samples:
         raise RuntimeError("No training samples found.")
 
-    all_labels   = sorted({lbl for _, lbl in all_samples})
+    all_labels   = sorted({lbl for _, lbl in train_samples + test_samples})
     class_to_idx = {c: i for i, c in enumerate(all_labels)}
     num_classes  = len(class_to_idx)
 
-    # Hold out 10% as a test set for per-epoch evaluation
-    random.seed(42)
-    random.shuffle(all_samples)
-    test_split   = int(len(all_samples) * 0.1)
-    test_samples  = all_samples[:test_split]
-    train_samples = all_samples[test_split:]
-
     print(f"\nClasses ({num_classes}): {all_labels}")
     print(f"Train : {len(train_samples)} images")
-    print(f"Test  : {len(test_samples)} images (10% held out for evaluation)\n")
+    print(f"Test  : {len(test_samples)} images\n")
 
     with open(REPO_ROOT / "class_mapping.json", "w") as fh:
         json.dump(

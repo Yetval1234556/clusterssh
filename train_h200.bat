@@ -17,6 +17,12 @@ if "%NGPUS%"=="" set NGPUS=1
 set SCRIPTDIR=%~dp0
 set SSH=ssh -o ConnectTimeout=10 %UNC_USER%@%UNC_HOST%
 
+:: Cache SSH passphrase once for the whole session
+echo [0] Caching SSH key passphrase (enter once, reused for all steps)...
+sc start ssh-agent >nul 2>&1
+ssh-add %USERPROFILE%\.ssh\id_ed25519 2>nul
+echo.
+
 echo.
 echo ========================================================
 echo   DinoBloom-G Training Launcher

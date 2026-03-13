@@ -10,6 +10,12 @@ set OCI_KEY=%~dp0yetvald@gmail.com-2026-03-13T02_48_12.614Z.pem
 set SCRIPTDIR=%~dp0
 set SSH=ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST%
 
+:: Cache SSH passphrase once for the whole session
+echo [0] Caching SSH key passphrase (enter once, reused for all steps)...
+sc start ssh-agent >nul 2>&1
+ssh-add %USERPROFILE%\.ssh\id_ed25519 2>nul
+echo.
+
 :: Always copy launcher scripts (tiny, always want latest)
 echo [1] Copying launcher scripts...
 scp "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/

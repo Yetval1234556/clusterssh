@@ -1,7 +1,15 @@
-# Never commit private keys or credentials
+# Credentials — never commit
 *.pem
 *.key
 *.p12
 *.pfx
 .env
 secrets.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude internal
+.claude/
