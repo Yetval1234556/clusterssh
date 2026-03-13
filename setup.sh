@@ -163,29 +163,57 @@ fi
 
 # 4. Download DinoBloom-G pretrained weights
 echo "[4/5] Checking DinoBloom-G weights..."
-if [ -f "$SCRATCH/DinoBloom-G.pth" ]; then
-    SIZE=$(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)
-    echo "  Weights already present ($SIZE) — skipping download."
+WEIGHTS_SIZE=$(stat -c%s "$SCRATCH/DinoBloom-G.pth" 2>/dev/null || echo 0)
+if [ "$WEIGHTS_SIZE" -gt 104857600 ]; then  # must be >100MB to be valid
+    echo "  Weights already present ($(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)) — skipping download."
 else
+    [ "$WEIGHTS_SIZE" -gt 0 ] && echo "  Existing weights file is too small ($WEIGHTS_SIZE bytes) — redownloading..."
     echo "  Downloading DinoBloom-G weights (~4.4GB)..."
+    rm -f "$SCRATCH/DinoBloom-G.pth"
     oci os object get \
         --namespace $ORACLE_NAMESPACE \
         --bucket-name $ORACLE_BUCKET \
         --name "trained-models/dinobloom/dinobloom_g_finetuned.pth" \
         --file "$SCRATCH/DinoBloom-G.pth"
-    echo "  Weights downloaded."
+    echo "  Weights downloaded: $(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)"
 fi
 
 # 5. Set up conda environment
 echo "[5/5] Checking conda environment..."
-module load conda 2>/dev/null || true
-if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/miniconda3/etc/profile.d/conda.sh"
-elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/anaconda3/etc/profile.d/conda.sh"
-elif [ -f "/opt/conda/etc/profile.d/conda.sh" ]; then
-    source "/opt/conda/etc/profile.d/conda.sh"
+
+# Try module system first
+module load conda 2>/dev/null || module load anaconda 2>/dev/null || true
+
+# Source conda.sh from known locations
+for f in \
+    "$HOME/miniconda3/etc/profile.d/conda.sh" \
+    "$HOME/anaconda3/etc/profile.d/conda.sh" \
+    "$HOME/miniconda/etc/profile.d/conda.sh" \
+    "/opt/conda/etc/profile.d/conda.sh" \
+    "/usr/local/conda/etc/profile.d/conda.sh"; do
+    [ -f "$f" ] && source "$f" && echo "  Sourced conda from: $f" && break
+done
+
+# Broad search if still not found
+if ! command -v conda &>/dev/null; then
+    echo "  Searching for conda binary..."
+    CONDA_BIN=$(find /hpc /opt "$HOME" -name "conda" -type f 2>/dev/null | head -1)
+    if [ -n "$CONDA_BIN" ]; then
+        export PATH="$(dirname $CONDA_BIN):$PATH"
+        echo "  Found conda at: $CONDA_BIN"
+        # Try sourcing conda.sh relative to the binary
+        CONDA_SH="$(dirname $CONDA_BIN)/../etc/profile.d/conda.sh"
+        [ -f "$CONDA_SH" ] && source "$CONDA_SH"
+    fi
 fi
+
+if ! command -v conda &>/dev/null; then
+    echo "  FATAL: conda not found. Cannot create environment."
+    exit 1
+fi
+
+echo "  Conda binary: $(which conda)  version: $(conda --version)"
+
 if conda env list | grep -q "^dinov2 "; then
     echo "  Conda env 'dinov2' already exists — skipping creation."
     conda env update -f $SCRATCH/conda.yaml -n dinov2 --prune 2>/dev/null || true
