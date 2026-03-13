@@ -35,6 +35,7 @@ from PIL import Image
 from pathlib import Path
 import random
 import warnings
+from epoch_report import EpochReporter
 
 REPO_ROOT     = Path(__file__).parent.resolve()
 OCI_NAMESPACE = "idcsxwupyymi"
@@ -372,7 +373,9 @@ def train(args):
         print("[resume] No checkpoint found — starting from scratch.\n")
 
     # ── Epoch loop ────────────────────────────────────────────────────────
+    reporter = EpochReporter(report_every=args.report_every)
     for epoch in range(start_epoch, args.epochs + 1):
+        reporter.epoch_start()
         model.train()
         run_loss = 0.0
         correct  = total = 0
@@ -435,6 +438,19 @@ def train(args):
                 acc = class_correct[i] / class_total[i] * 100
                 print(f"    {idx_to_class[i]:<20} {acc:.1f}%  ({class_correct[i]}/{class_total[i]})")
         print(f"{'='*60}\n")
+
+        # ── Verbose epoch report every N epochs ───────────────────────────
+        reporter.report(
+            epoch=epoch,
+            total_epochs=args.epochs,
+            model=model,
+            optimizer=optimizer,
+            train_loss=train_loss,
+            val_loss=None,
+            train_acc=train_acc / 100,
+            val_acc=test_acc / 100,
+            extra={"lr": scheduler.get_last_lr()[0]},
+        )
 
         # ── Log metrics to CSV ────────────────────────────────────────────
         with open(metrics_path, "a", newline="") as f:
