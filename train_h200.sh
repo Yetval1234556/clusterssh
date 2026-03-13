@@ -271,6 +271,8 @@ if [ -f "$SCRATCH/dinobloom_g_finetuned.pth" ]; then
         --name "$OCI_PREFIX/best.pth" \
         --file "$SCRATCH/dinobloom_g_finetuned.pth" --force
     echo "  Uploaded → $OCI_PREFIX/best.pth"
+    rm -f "$SCRATCH/dinobloom_g_finetuned.pth"
+    echo "  Local copy removed."
 else
     echo "  WARNING: dinobloom_g_finetuned.pth not found — skipping best upload"
 fi
@@ -283,6 +285,8 @@ if [ -f "$SCRATCH/checkpoint_latest.pth" ]; then
         --name "$OCI_PREFIX/last.pth" \
         --file "$SCRATCH/checkpoint_latest.pth" --force
     echo "  Uploaded → $OCI_PREFIX/last.pth"
+    rm -f "$SCRATCH/checkpoint_latest.pth"
+    echo "  Local copy removed."
 else
     echo "  WARNING: checkpoint_latest.pth not found — skipping last upload"
 fi

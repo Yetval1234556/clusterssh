@@ -440,8 +440,16 @@ def train(args):
                 "class_to_idx"        : class_to_idx,
             }
             torch.save(ckpt_data, str(ckpt_path))
-            torch.save(ckpt_data, str(backup_dir / f"checkpoint_epoch_{epoch:03d}.pth"))
-            print(f"  [backup] saved → backup/checkpoint_epoch_{epoch:03d}.pth")
+
+            # Upload per-epoch backup to Oracle then delete local copy — no disk buildup
+            backup_path = backup_dir / f"checkpoint_epoch_{epoch:03d}.pth"
+            torch.save(ckpt_data, str(backup_path))
+            try:
+                oracle_upload(str(backup_path), f"{OCI_RUN_PREFIX}/backups/checkpoint_epoch_{epoch:03d}.pth")
+                backup_path.unlink()  # delete local copy after successful upload
+                print(f"  [backup] epoch {epoch:03d} → Oracle, local copy removed")
+            except Exception as e:
+                print(f"  [backup] WARNING: epoch backup upload failed — keeping local — {e}")
 
             # Upload last checkpoint to Oracle (overwrites previous last every epoch)
             try:
