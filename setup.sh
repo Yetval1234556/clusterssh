@@ -144,60 +144,33 @@ else
     echo "  Make sure setup.bat completed successfully before running the training job."
 fi
 
-# 3. Pull dataset — Oracle first, Google Drive fallback
+# 3. Pull dataset from Oracle (extracted/ prefix contains archive5, archive6, archive7, ...)
 echo "[3/5] Checking dataset..."
 mkdir -p "$SCRATCH/New Data/extracted"
 
-DATASET_COUNT=$(find "$SCRATCH/New Data/extracted" -name "*.jpg" -o -name "*.bmp" -o -name "*.png" 2>/dev/null | wc -l)
+DATASET_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
 echo "  Images already in extracted/: $DATASET_COUNT"
 
-if [ "$DATASET_COUNT" -gt 1000 ]; then
+if [ "$DATASET_COUNT" -gt 0 ]; then
     echo "  Dataset already present ($DATASET_COUNT images) — skipping download."
 else
-    echo "  Dataset not found or incomplete — fetching..."
+    echo "  Downloading dataset from Oracle (prefix: extracted/)..."
+    echo "  Bucket: $ORACLE_BUCKET"
     echo ""
+    oci os object bulk-download \
+        --namespace "$ORACLE_NAMESPACE" \
+        --bucket-name "$ORACLE_BUCKET" \
+        --prefix "extracted/" \
+        --download-dir "$SCRATCH/New Data" \
+        --overwrite 2>&1 | grep -v "^$"
 
-    # Try Oracle first (fastest — same cloud provider, free egress)
-    ORACLE_KEY=$(oci os object list \
-        --namespace $ORACLE_NAMESPACE \
-        --bucket-name $ORACLE_BUCKET \
-        --prefix "extracted/main_dataset" \
-        --query "data[0].name" --raw-output 2>/dev/null || echo "")
-
-    if [ -n "$ORACLE_KEY" ] && [ "$ORACLE_KEY" != "null" ]; then
-        echo "  Found in Oracle: $ORACLE_KEY"
-        echo "  Downloading from Oracle..."
-        EXT="${ORACLE_KEY##*.}"
-        DEST="$SCRATCH/New Data/main_dataset.$EXT"
-        oci os object get \
-            --namespace $ORACLE_NAMESPACE \
-            --bucket-name $ORACLE_BUCKET \
-            --name "$ORACLE_KEY" \
-            --file "$DEST"
-        echo "  Downloaded: $(du -sh "$DEST" | cut -f1)"
+    FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
+    if [ "$FINAL_COUNT" -gt 0 ]; then
+        echo "  OK: $FINAL_COUNT images downloaded from Oracle."
     else
-        echo "  WARNING: Dataset not found in Oracle under prefix 'extracted/main_dataset'."
-        echo "  Upload your dataset archive to Oracle first:"
-        echo "    oci os object put --bucket-name $ORACLE_BUCKET --name \"extracted/main_dataset.zip\" --file /path/to/dataset.zip"
-        echo "  Skipping dataset download — training will fail if no images are present."
+        echo "  WARNING: No images found after Oracle download."
+        echo "  Check that objects exist under prefix 'extracted/' in bucket $ORACLE_BUCKET"
     fi
-
-    # Extract based on file type
-    echo "  Extracting dataset..."
-    DEST_FILE=$(ls -t "$SCRATCH/New Data" | grep -v "extracted\|train.txt\|val.txt" | head -1)
-    DEST_PATH="$SCRATCH/New Data/$DEST_FILE"
-    echo "  File: $DEST_FILE"
-    case "$DEST_FILE" in
-        *.zip)         unzip -q "$DEST_PATH" -d "$SCRATCH/New Data/extracted/" ;;
-        *.tar.gz|*.tgz) tar -xzf "$DEST_PATH" -C "$SCRATCH/New Data/extracted/" ;;
-        *.tar.bz2)     tar -xjf "$DEST_PATH" -C "$SCRATCH/New Data/extracted/" ;;
-        *.tar)         tar -xf  "$DEST_PATH" -C "$SCRATCH/New Data/extracted/" ;;
-        *)             echo "  Unknown format — leaving as-is." ;;
-    esac
-    echo "  Extraction complete."
-
-    FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" -name "*.jpg" -o -name "*.bmp" -o -name "*.png" 2>/dev/null | wc -l)
-    echo "  Total images in extracted/: $FINAL_COUNT"
 fi
 
 # 4. Download DinoBloom-G pretrained weights (from Oracle Object Storage)

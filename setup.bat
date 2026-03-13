@@ -160,78 +160,58 @@ if "%DINOV2%"=="yes" (
 )
 echo.
 
-:: ── [4] Dataset: Google Drive folder → Oracle cluster (smart sync) ───────────
+:: ── [4] Dataset: Oracle (primary) + Google Drive (fallback) ──────────────────
 echo  ┌───────────────────────────────────────────────────────────────────────┐
-echo  │  [4]   Dataset archives — smart check then sync                      │
-echo  │        Check cluster first; only pull from Google Drive if missing   │
+echo  │  [4]   Dataset archives                                               │
+echo  │        1. Skip if already on cluster                                  │
+echo  │        2. Pull from Oracle (extracted/)                               │
+echo  │        3. Fall back to Google Drive if Oracle has nothing             │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
-echo    Cluster dest : ~/bloomi/New Data/extracted/
-echo.
 
-:: Check disk space first
+:: Disk space
 echo    Disk space on cluster:
 %SSH% "df -h ~ | tail -1 | awk '{printf \"    used=%%s  avail=%%s  (%%s full)\n\", $3, $4, $5}'"
 echo.
 
 :: Count images already on cluster
-echo    Scanning cluster for existing archives and images...
-for /f %%C in ('%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -cE '^archive[0-9]+' || echo 0"') do set ARCHIVE_COUNT=%%C
-for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 3 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set IMAGE_COUNT=%%I
-echo.
-echo    Found on cluster: %ARCHIVE_COUNT% archives, %IMAGE_COUNT% images
-echo.
-
-:: Show current inventory
-echo    ┌────────────────────────────────────────────────────────────────────┐
-echo    │   Archive inventory                                                │
-echo    ├────────────────────────────────────────────────────────────────────┤
-%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -E '^archive[0-9]+' | sort -V | while read a; do IMG=$(find ~/bloomi/'New Data'/extracted/$a -maxdepth 2 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' \) 2>/dev/null | wc -l); SIZE=$(du -sh ~/bloomi/'New Data'/extracted/$a 2>/dev/null | cut -f1); echo \"    │   $a   ($IMG images, $SIZE)\"; done || echo '    │   (none found)'"
-echo    └────────────────────────────────────────────────────────────────────┘
+echo    Scanning cluster for existing images...
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set IMAGE_COUNT=%%I
+if "%IMAGE_COUNT%"=="" set IMAGE_COUNT=0
+echo    Images already on cluster: %IMAGE_COUNT%
 echo.
 
-:: Decision: skip gdown if images already present
 if %IMAGE_COUNT% GTR 0 (
-    echo    SKIP: %IMAGE_COUNT% images already on cluster across %ARCHIVE_COUNT% archives.
-    echo    Delete ~/bloomi/'New Data'/extracted/ on the cluster to force a re-sync.
+    echo    SKIP: Images already present. Delete ~/bloomi/'New Data'/extracted/ to force re-sync.
     echo.
     goto :after_sync
 )
 
-:: No images found — attempt Google Drive download
-echo    No images found on cluster. Attempting Google Drive sync...
+:: Try Oracle first
+echo    No images found. Trying Oracle (prefix: extracted/)...
+%SSH% "export PATH=$HOME/.local/bin:$PATH; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite 2>&1 | tail -3"
+echo.
+
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' \) 2>/dev/null | wc -l || echo 0"') do set OCI_IMAGES=%%I
+if "%OCI_IMAGES%"=="" set OCI_IMAGES=0
+if %OCI_IMAGES% GTR 0 (
+    echo    OK: %OCI_IMAGES% images pulled from Oracle.
+    echo.
+    goto :after_sync
+)
+
+:: Fall back to Google Drive
+echo    Oracle returned no images. Falling back to Google Drive...
 echo    Google Drive : %GDRIVE_URL%
 echo.
-
-:: Ensure gdown is installed on cluster
-echo    Ensuring gdown is installed on cluster...
-%SSH% "python3 -c 'import gdown' 2>/dev/null && echo '    gdown already installed.' || ( (source ~/dinov2_venv/bin/activate 2>/dev/null && pip install -q gdown && echo '    gdown installed into venv.') || (pip install -q --break-system-packages gdown && echo '    gdown installed (system).') )"
-echo.
-
-:: Smart sync — gdown skips files already present; --remaining-ok skips restricted files
-echo    Downloading from Google Drive (this may take a while)...
-echo    Note: restricted files (e.g. labels.zip) will be skipped automatically.
-echo.
+%SSH% "python3 -c 'import gdown' 2>/dev/null || (source ~/dinov2_venv/bin/activate 2>/dev/null && pip install -q gdown) || pip install -q --break-system-packages gdown"
 %SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; mkdir -p ~/bloomi/'New Data'/extracted && cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok; exit 0"
 echo.
 
-:: Check if images actually landed — gdown exit code doesn't matter if images are there
-for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' \) 2>/dev/null | wc -l || echo 0"') do set POST_IMAGES=%%I
-if "%POST_IMAGES%"=="" set POST_IMAGES=0
-if %POST_IMAGES% GTR 0 (
-    echo    OK: %POST_IMAGES% images present on cluster after sync.
-) else (
-    echo    WARNING: No images found after sync.
-    echo    Some files in the Drive folder may have per-file permission restrictions.
-    echo    To upload manually: scp -r "C:\path\to\data" rpatel1@login-01.ncshare.org:~/bloomi/"New Data"/extracted/
-)
-echo.
-
 :after_sync
-:: Final inventory
-for /f %%C in ('%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -cE '^archive[0-9]+' || echo 0"') do set AFTER_COUNT=%%C
-for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 3 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set AFTER_IMAGES=%%I
-echo    Dataset status: %AFTER_COUNT% archives, %AFTER_IMAGES% images on cluster.
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set FINAL_IMAGES=%%I
+if "%FINAL_IMAGES%"=="" set FINAL_IMAGES=0
+echo    Dataset status: %FINAL_IMAGES% images on cluster.
 echo.
 
 :: ── [5] Image Count + Train/Val Split ────────────────────────────────────────
