@@ -178,58 +178,30 @@ else
     echo "  Weights downloaded: $(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)"
 fi
 
-# 5. Set up conda environment
-echo "[5/5] Checking conda environment..."
+# 5. Set up Python virtual environment (no conda needed)
+echo "[5/5] Checking Python environment..."
+echo "  Python: $(python3 --version 2>&1)"
 
-# Source .bashrc first — cluster may set up conda there
-source "$HOME/.bashrc" 2>/dev/null || true
+VENV_DIR="$HOME/dinov2_venv"
 
-# Try every common module name
-for mod in conda anaconda anaconda3 miniconda miniconda3 python/anaconda python/miniconda anaconda/latest miniconda/latest; do
-    command -v conda &>/dev/null && break
-    module load $mod 2>/dev/null || true
-done
-
-# Source conda.sh from known locations
-for f in \
-    "$HOME/miniconda3/etc/profile.d/conda.sh" \
-    "$HOME/anaconda3/etc/profile.d/conda.sh" \
-    "$HOME/miniconda/etc/profile.d/conda.sh" \
-    "/opt/conda/etc/profile.d/conda.sh" \
-    "/usr/local/conda/etc/profile.d/conda.sh" \
-    "/hpc/software/anaconda3/etc/profile.d/conda.sh" \
-    "/hpc/software/miniconda3/etc/profile.d/conda.sh" \
-    "/apps/anaconda3/etc/profile.d/conda.sh"; do
-    [ -f "$f" ] && source "$f" && echo "  Sourced conda from: $f" && break
-done
-
-# Broad search as last resort
-if ! command -v conda &>/dev/null; then
-    echo "  Searching for conda binary..."
-    CONDA_BIN=$(find /hpc /apps /software /opt "$HOME" -name "conda" -type f 2>/dev/null | grep -v __pycache__ | head -1)
-    if [ -n "$CONDA_BIN" ]; then
-        export PATH="$(dirname $CONDA_BIN):$PATH"
-        echo "  Found conda at: $CONDA_BIN"
-        CONDA_SH="$(dirname $CONDA_BIN)/../etc/profile.d/conda.sh"
-        [ -f "$CONDA_SH" ] && source "$CONDA_SH"
-    fi
-fi
-
-if ! command -v conda &>/dev/null; then
-    echo "  FATAL: conda not found. Run 'module avail' on the cluster to find the correct module name."
-    exit 1
-fi
-
-echo "  Conda binary: $(which conda)  version: $(conda --version)"
-
-if conda env list | grep -q "^dinov2 "; then
-    echo "  Conda env 'dinov2' already exists — skipping creation."
-    conda env update -f $SCRATCH/conda.yaml -n dinov2 --prune 2>/dev/null || true
+if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
+    echo "  venv already exists at $VENV_DIR — skipping creation."
 else
-    echo "  Creating conda env 'dinov2'..."
-    conda env create -f $SCRATCH/conda.yaml -n dinov2
+    echo "  Creating venv at $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+    echo "  venv created."
 fi
-echo "  Conda env ready."
+
+source "$VENV_DIR/bin/activate"
+echo "  venv activated: $VIRTUAL_ENV"
+echo "  pip: $(pip --version)"
+
+echo "  Installing packages from requirements.txt..."
+pip install --upgrade pip --quiet
+pip install -r "$SCRATCH/requirements.txt" \
+    --progress-bar on \
+    2>&1 | grep -E "^(Collecting|Downloading|Installing|Successfully|ERROR|already)" || true
+echo "  Packages installed."
 
 echo ""
 echo "=== Setup complete — submit your training job: ==="

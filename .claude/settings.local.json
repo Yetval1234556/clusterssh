@@ -4,7 +4,8 @@
       "Bash(cd \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\" && rm download.bat)",
       "Bash(cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\train_efficientnet_b0.py\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\train_efficientnet_b0.py\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\train_efficientnet_b0_ddp.py\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\train_efficientnet_b0_ddp.py\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\conda.yaml\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\conda.yaml\")",
       "Bash(cp -r \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\dinov2\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\dinov2\")",
-      "Bash(mkdir -p \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\New Data\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\New Data\\\\train.txt\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\New Data\\\\train.txt\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\New Data\\\\val.txt\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\New Data\\\\val.txt\")"
+      "Bash(mkdir -p \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\New Data\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\New Data\\\\train.txt\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\New Data\\\\train.txt\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\New Data\\\\val.txt\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\New Data\\\\val.txt\")",
+      "Bash(ssh rpatel1@login-01.ncshare.org \"pip3 list 2>/dev/null | grep -i torch\" 2>/dev/null || echo \"need to check\")"
     ]
   }
 }

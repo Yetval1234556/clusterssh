@@ -18,7 +18,7 @@ if errorlevel 1 ( echo ERROR: SCP failed. & exit /b 1 )
 :: Always copy training scripts (fast, always want latest)
 echo [2] Copying training scripts...
 %SSH% "mkdir -p ~/bloomi"
-scp "%SCRIPTDIR%train_efficientnet_b0.py" "%SCRIPTDIR%train_efficientnet_b0_ddp.py" "%SCRIPTDIR%conda.yaml" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
+scp "%SCRIPTDIR%train_efficientnet_b0.py" "%SCRIPTDIR%train_efficientnet_b0_ddp.py" "%SCRIPTDIR%requirements.txt" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
 if errorlevel 1 ( echo ERROR: Failed to copy training scripts. & exit /b 1 )
 
 :: Skip dinov2 if already on cluster

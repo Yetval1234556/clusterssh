@@ -27,12 +27,7 @@ OCI_BUCKET="bloomi-training-data"
 
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
-for f in "$HOME/miniconda3/etc/profile.d/conda.sh" \
-          "$HOME/anaconda3/etc/profile.d/conda.sh" \
-          "/opt/conda/etc/profile.d/conda.sh"; do
-    [ -f "$f" ] && source "$f" && break
-done
-conda activate dinov2
+source "$HOME/dinov2_venv/bin/activate"
 
 SCRATCH=/hpc/home/$USER/bloomi
 cd $SCRATCH
@@ -63,7 +58,7 @@ echo "--- Python / PyTorch ---"
 echo "  Python  : $(python --version 2>&1)"
 echo "  PyTorch : $(python -c 'import torch; print(torch.__version__)' 2>/dev/null || echo 'not found')"
 echo "  CUDA    : $(python -c 'import torch; print(torch.version.cuda)' 2>/dev/null || echo 'not found')"
-echo "  Conda   : $CONDA_DEFAULT_ENV"
+echo "  Venv    : $VIRTUAL_ENV"
 echo "  nvcc    : $(nvcc --version 2>/dev/null | grep release || echo 'not in PATH')"
 echo ""
 
