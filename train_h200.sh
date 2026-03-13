@@ -94,6 +94,45 @@ GPU_MONITOR_PID=$!
 echo "GPU monitor PID $GPU_MONITOR_PID → logs/gpu_monitor_${SLURM_JOB_ID}.csv"
 echo ""
 
+# ── Background checkpoint backup to Oracle (every 30 min) ────────────────────
+# Runs silently in background — if job crashes, latest backup is safe on Oracle
+(
+    BACKUP_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}/backups"
+    INTERVAL=1800  # 30 minutes
+    N=0
+    while true; do
+        sleep $INTERVAL
+        N=$((N + 1))
+        TS=$(date +%H%M%S)
+        BACKED_UP=0
+
+        if [ -f "$SCRATCH/checkpoint_latest.pth" ]; then
+            oci os object put \
+                --namespace $OCI_NS --bucket-name $OCI_BUCKET \
+                --name "$BACKUP_PREFIX/checkpoint_${TS}.pth" \
+                --file "$SCRATCH/checkpoint_latest.pth" --force \
+                > /dev/null 2>&1 && BACKED_UP=1
+        fi
+
+        if [ -f "$SCRATCH/dinobloom_g_finetuned.pth" ]; then
+            oci os object put \
+                --namespace $OCI_NS --bucket-name $OCI_BUCKET \
+                --name "$BACKUP_PREFIX/best_${TS}.pth" \
+                --file "$SCRATCH/dinobloom_g_finetuned.pth" --force \
+                > /dev/null 2>&1
+        fi
+
+        if [ $BACKED_UP -eq 1 ]; then
+            echo "[backup #$N @ $(date)] Checkpoint pushed → $BACKUP_PREFIX/checkpoint_${TS}.pth"
+        else
+            echo "[backup #$N @ $(date)] No checkpoint found yet — skipping"
+        fi
+    done
+) &
+BACKUP_PID=$!
+echo "Checkpoint backup PID $BACKUP_PID → Oracle every 30min under backups/"
+echo ""
+
 # ── Train ─────────────────────────────────────────────────────────────────────
 echo "========================================================"
 echo "  Starting training — $(date)"
@@ -124,8 +163,9 @@ else
             --report-every 5
 fi
 
-# ── Stop GPU monitor ──────────────────────────────────────────────────────────
+# ── Stop background processes ─────────────────────────────────────────────────
 kill $GPU_MONITOR_PID 2>/dev/null || true
+kill $BACKUP_PID 2>/dev/null || true
 
 echo ""
 echo "========================================================"
@@ -200,9 +240,10 @@ WHY THESE SETTINGS
 
 FILES IN THIS FOLDER
 --------------------
-best.pth    : $BEST_SIZE  — checkpoint at best validation accuracy (use for inference)
-last.pth    : $LAST_SIZE  — final epoch checkpoint (use to resume training)
-run_info.txt: this file
+best.pth       : $BEST_SIZE  — checkpoint at best validation accuracy (use for inference)
+last.pth       : $LAST_SIZE  — final epoch checkpoint (use to resume training)
+run_info.txt   : this file
+backups/       : mid-training checkpoints saved every 30 min (crash recovery)
 
 METRICS — every 5 epochs (5, 10, 15 ... 75)
 --------------------------------------------
