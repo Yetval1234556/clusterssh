@@ -69,11 +69,11 @@ else
     TIER="Very Large"; EPOCHS=30; BATCH=128; UNFREEZE=4; BASE_WORKERS=16
 fi
 
-# Multi-GPU: scale batch + workers, reduce epochs (larger effective batch converges faster)
+# Epochs fixed at 100 regardless of dataset size
+EPOCHS=100
+
+# Multi-GPU: scale batch + workers only (epochs stay at 100)
 EFFECTIVE_BATCH=$((BATCH * NGPUS))
-if [ "$NGPUS" -gt 1 ]; then
-    EPOCHS=$((EPOCHS * 3 / 4))
-fi
 
 # Workers: scale with GPUs, cap at available CPUs - 4
 AVAIL_CPUS=$(nproc 2>/dev/null || echo 56)
