@@ -119,6 +119,7 @@ user=${OCI_USER}
 fingerprint=${OCI_FINGERPRINT}
 tenancy=${OCI_TENANCY}
 region=${ORACLE_REGION}
+key_file=~/.oci/oci_api_key.pem
 OCIEOF
 chmod 600 ~/.oci/config
 echo "  Config written to ~/.oci/config"
