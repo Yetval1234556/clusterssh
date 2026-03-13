@@ -160,7 +160,7 @@ echo "[4/5] Downloading DinoBloom-G weights (~4.4GB)..."
 oci os object get \
     --namespace $ORACLE_NAMESPACE \
     --bucket-name $ORACLE_BUCKET \
-    --name "DinoBloom-G.pth" \
+    --name "trained-models/dinobloom/dinobloom_g_finetuned.pth" \
     --file "$SCRATCH/DinoBloom-G.pth"
 echo "  Weights downloaded."
 
