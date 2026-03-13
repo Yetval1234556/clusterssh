@@ -156,30 +156,64 @@ else
 fi
 
 cat > /tmp/run_info.txt << INFO
-DinoBloom-G Fine-Tuning Run
-============================
+================================================================================
+  BLOOMI — DinoBloom-G Fine-Tuning Run
+  Leukemia Subtype Classifier | UNC H200 Cluster
+================================================================================
+
+PROJECT
+-------
+Name        : Bloomi
+Goal        : Fine-tune DinoBloom-G (Vision Transformer, DINOv2-Giant backbone)
+              to classify leukemia subtypes from white blood cell microscopy images.
+Application : Early leukemia detection — model predicts malignant cell subtypes
+              (Early, Pre, Pro, Blast) from bone marrow / peripheral blood smear
+              images. Intended for clinical decision support.
+Base Model  : DinoBloom-G — a ViT-Giant pretrained on 13M+ pathology images,
+              specifically on hematology slides. Fine-tuned here on our curated
+              WBC malignancy dataset using EfficientNet-B0 classification head.
+Dataset     : WBC Malignancy Dataset (~10GB)
+              Classes: Early, Pre, Pro, Blast (malignant subtypes)
+              Source : Oracle bucket bloomi-training-data/extracted/
+
+TRAINING RUN
+------------
 Job ID      : $SLURM_JOB_ID
 Date        : $RUN_DATE
 Node        : $(hostname)
-GPUs        : ${NGPUS}x H200 (96GB each)
+Cluster     : UNC ncshare H200 HPC
+GPUs        : ${NGPUS}x NVIDIA H200 (96GB VRAM each = $((96 * NGPUS))GB total)
 Epochs      : 75
-Batch/GPU   : 64  (effective: $((64 * NGPUS)))
-LR          : 1e-4
-Unfreeze    : 4 blocks
-Workers     : 224
+Batch/GPU   : 64  (effective batch: $((64 * NGPUS)))
+Learning Rate: 1e-4
+Unfreeze    : Last 4 blocks of DinoBloom-G backbone (rest frozen)
+Workers     : 224 dataloader workers
+Strategy    : DDP (DistributedDataParallel) via torchrun across $NGPUS GPUs
 
-Files
-------
-best.pth    : $BEST_SIZE  (best validation accuracy)
-last.pth    : $LAST_SIZE  (final checkpoint, use to resume)
+WHY THESE SETTINGS
+------------------
+- DinoBloom-G frozen except last 4 blocks: preserves hematology-specific
+  features learned during pretraining, only adapts top layers to our classes.
+- LR 1e-4: conservative rate suited for fine-tuning a large pretrained ViT.
+- 75 epochs: enough to converge without overfitting on our dataset size.
+- Batch 256 effective: large batch stabilises DDP gradient averaging across GPUs.
 
-Metrics — every 5 epochs (epoch 5, 10, 15 ... 75)
----------------------------------------------------
+FILES IN THIS FOLDER
+--------------------
+best.pth    : $BEST_SIZE  — checkpoint at best validation accuracy (use for inference)
+last.pth    : $LAST_SIZE  — final epoch checkpoint (use to resume training)
+run_info.txt: this file
+
+METRICS — every 5 epochs (5, 10, 15 ... 75)
+--------------------------------------------
 $METRICS_TABLE
 
-Oracle Path
------------
-$OCI_PREFIX/
+ORACLE STORAGE PATH
+-------------------
+Namespace : $OCI_NS
+Bucket    : $OCI_BUCKET
+Prefix    : $OCI_PREFIX/
+================================================================================
 INFO
 oci os object put \
     --namespace $OCI_NS --bucket-name $OCI_BUCKET \
