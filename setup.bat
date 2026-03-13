@@ -147,11 +147,10 @@ echo.
 
 :: ── [4] Dataset: Google Drive folder → Oracle cluster (smart sync) ───────────
 echo  ┌───────────────────────────────────────────────────────────────────────┐
-echo  │  [4]   Dataset archives: Google Drive  →  Oracle cluster             │
-echo  │        (gdown --remaining-ok skips files already present)            │
+echo  │  [4]   Dataset archives — smart check then sync                      │
+echo  │        Check cluster first; only pull from Google Drive if missing   │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
-echo    Google Drive : %GDRIVE_URL%
 echo    Cluster dest : ~/bloomi/New Data/extracted/
 echo.
 
@@ -160,9 +159,33 @@ echo    Disk space on cluster:
 %SSH% "df -h ~ | tail -1 | awk '{printf \"    used=%%s  avail=%%s  (%%s full)\n\", $3, $4, $5}'"
 echo.
 
-:: Count archives before sync
-for /f %%C in ('%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -cE '^archive[0-9]+' || echo 0"') do set BEFORE_COUNT=%%C
-echo    Archives on cluster BEFORE sync: %BEFORE_COUNT%
+:: Count images already on cluster
+echo    Scanning cluster for existing archives and images...
+for /f %%C in ('%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -cE '^archive[0-9]+' || echo 0"') do set ARCHIVE_COUNT=%%C
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 3 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set IMAGE_COUNT=%%I
+echo.
+echo    Found on cluster: %ARCHIVE_COUNT% archives, %IMAGE_COUNT% images
+echo.
+
+:: Show current inventory
+echo    ┌────────────────────────────────────────────────────────────────────┐
+echo    │   Archive inventory                                                │
+echo    ├────────────────────────────────────────────────────────────────────┤
+%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -E '^archive[0-9]+' | sort -V | while read a; do IMG=$(find ~/bloomi/'New Data'/extracted/$a -maxdepth 2 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' \) 2>/dev/null | wc -l); SIZE=$(du -sh ~/bloomi/'New Data'/extracted/$a 2>/dev/null | cut -f1); echo \"    │   $a   ($IMG images, $SIZE)\"; done || echo '    │   (none found)'"
+echo    └────────────────────────────────────────────────────────────────────┘
+echo.
+
+:: Decision: skip gdown if images already present
+if %IMAGE_COUNT% GTR 0 (
+    echo    SKIP: %IMAGE_COUNT% images already on cluster across %ARCHIVE_COUNT% archives.
+    echo    Delete ~/bloomi/'New Data'/extracted/ on the cluster to force a re-sync.
+    echo.
+    goto :after_sync
+)
+
+:: No images found — attempt Google Drive download
+echo    No images found on cluster. Attempting Google Drive sync...
+echo    Google Drive : %GDRIVE_URL%
 echo.
 
 :: Ensure gdown is installed on cluster
@@ -171,30 +194,31 @@ echo    Ensuring gdown is installed on cluster...
 echo.
 
 :: Smart sync — gdown skips files already present
-echo    Starting smart sync from Google Drive...
-echo    (gdown will skip archives already present, download only new ones)
+echo    Downloading from Google Drive (this may take a while)...
 echo.
-%SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok && echo SYNC_COMPLETE"
+%SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; mkdir -p ~/bloomi/'New Data'/extracted && cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok && echo SYNC_COMPLETE"
 if errorlevel 1 (
     echo.
-    echo    ERROR: gdown sync failed — aborting.
-    echo    Check that the folder is set to public ^(anyone with link^).
-    exit /b 1
+    echo    WARNING: gdown sync failed.
+    echo    The Google Drive folder may have per-file permission restrictions.
+    echo.
+    echo    To fix — ask the folder owner to set sharing to:
+    echo      Google Drive ^> Right-click folder ^> Share ^> Anyone with the link ^> Viewer
+    echo.
+    echo    Or manually upload archives to the cluster:
+    echo      scp -r "C:\path\to\archiveN" rpatel1@login-01.ncshare.org:~/bloomi/"New Data"/extracted/
+    echo.
+    echo    Continuing without dataset — training will fail if no images are present.
+    echo.
+    goto :after_sync
 )
 echo.
 
-:: Show inventory after sync
+:after_sync
+:: Final inventory
 for /f %%C in ('%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -cE '^archive[0-9]+' || echo 0"') do set AFTER_COUNT=%%C
-set /a NEW_ARCHIVES=%AFTER_COUNT% - %BEFORE_COUNT%
-echo    ┌────────────────────────────────────────────────────────────────────┐
-echo    │   Archive inventory AFTER sync                                     │
-echo    ├────────────────────────────────────────────────────────────────────┤
-%SSH% "ls ~/bloomi/'New Data'/extracted/ 2>/dev/null | grep -E '^archive[0-9]+' | sort -V | while read a; do SIZE=$(du -sh ~/bloomi/'New Data'/extracted/$a 2>/dev/null | cut -f1); echo \"    │   $a   ($SIZE)\"; done || echo '    │   (none found)'"
-echo    ├────────────────────────────────────────────────────────────────────┤
-echo    │   Before: %BEFORE_COUNT% archives   After: %AFTER_COUNT% archives   New: %NEW_ARCHIVES%
-echo    └────────────────────────────────────────────────────────────────────┘
-echo.
-echo    OK: Dataset sync complete.
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 3 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set AFTER_IMAGES=%%I
+echo    Dataset status: %AFTER_COUNT% archives, %AFTER_IMAGES% images on cluster.
 echo.
 
 :: ── [5] Image Count + Train/Val Split ────────────────────────────────────────
