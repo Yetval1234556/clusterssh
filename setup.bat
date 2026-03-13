@@ -160,12 +160,10 @@ if "%DINOV2%"=="yes" (
 )
 echo.
 
-:: ── [4] Dataset: Oracle (primary) + Google Drive (fallback) ──────────────────
+:: ── [4] Dataset: Pull from BOTH Oracle and Google Drive ──────────────────────
 echo  ┌───────────────────────────────────────────────────────────────────────┐
-echo  │  [4]   Dataset archives                                               │
-echo  │        1. Skip if already on cluster                                  │
-echo  │        2. Pull from Oracle (extracted/)                               │
-echo  │        3. Fall back to Google Drive if Oracle has nothing             │
+echo  │  [4]   Dataset archives — pull from Oracle AND Google Drive           │
+echo  │        Both sources are combined into extracted/                      │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
 
@@ -174,44 +172,22 @@ echo    Disk space on cluster:
 %SSH% "df -h ~ | tail -1 | awk '{printf \"    used=%%s  avail=%%s  (%%s full)\n\", $3, $4, $5}'"
 echo.
 
-:: Count images already on cluster
-echo    Scanning cluster for existing images...
-for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set IMAGE_COUNT=%%I
-if "%IMAGE_COUNT%"=="" set IMAGE_COUNT=0
-echo    Images already on cluster: %IMAGE_COUNT%
+:: ── [4a] Oracle ───────────────────────────────────────────────────────────────
+echo    [4a] Pulling from Oracle (prefix: extracted/)...
+%SSH% "export PATH=$HOME/.local/bin:$HOME/bin:$PATH; mkdir -p ~/bloomi/'New Data'; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite 2>&1 | tail -5"
 echo.
 
-if %IMAGE_COUNT% GTR 0 (
-    echo    SKIP: Images already present. Delete ~/bloomi/'New Data'/extracted/ to force re-sync.
-    echo.
-    goto :after_sync
-)
-
-:: Try Oracle first
-echo    No images found. Trying Oracle (prefix: extracted/)...
-%SSH% "export PATH=$HOME/.local/bin:$PATH; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite 2>&1 | tail -3"
-echo.
-
-for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' \) 2>/dev/null | wc -l || echo 0"') do set OCI_IMAGES=%%I
-if "%OCI_IMAGES%"=="" set OCI_IMAGES=0
-if %OCI_IMAGES% GTR 0 (
-    echo    OK: %OCI_IMAGES% images pulled from Oracle.
-    echo.
-    goto :after_sync
-)
-
-:: Fall back to Google Drive
-echo    Oracle returned no images. Falling back to Google Drive...
-echo    Google Drive : %GDRIVE_URL%
-echo.
+:: ── [4b] Google Drive ─────────────────────────────────────────────────────────
+echo    [4b] Pulling from Google Drive (%GDRIVE_URL%)...
+echo    (restricted files like labels.zip will be skipped automatically)
 %SSH% "python3 -c 'import gdown' 2>/dev/null || (source ~/dinov2_venv/bin/activate 2>/dev/null && pip install -q gdown) || pip install -q --break-system-packages gdown"
 %SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; mkdir -p ~/bloomi/'New Data'/extracted && cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok; exit 0"
 echo.
 
-:after_sync
+:: Final count
 for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set FINAL_IMAGES=%%I
 if "%FINAL_IMAGES%"=="" set FINAL_IMAGES=0
-echo    Dataset status: %FINAL_IMAGES% images on cluster.
+echo    Total images on cluster after sync: %FINAL_IMAGES%
 echo.
 
 :: ── [5] Image Count + Train/Val Split ────────────────────────────────────────

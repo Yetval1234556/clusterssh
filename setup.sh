@@ -144,34 +144,31 @@ else
     echo "  Make sure setup.bat completed successfully before running the training job."
 fi
 
-# 3. Pull dataset from Oracle (extracted/ prefix contains archive5, archive6, archive7, ...)
-echo "[3/5] Checking dataset..."
+# 3. Pull dataset from BOTH Oracle and Google Drive
+echo "[3/5] Syncing dataset from Oracle + Google Drive..."
 mkdir -p "$SCRATCH/New Data/extracted"
 
-DATASET_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
-echo "  Images already in extracted/: $DATASET_COUNT"
+# 3a. Oracle bulk-download (archive5/6/7 etc.)
+echo "  [3a] Pulling from Oracle (prefix: extracted/)..."
+oci os object bulk-download \
+    --namespace "$ORACLE_NAMESPACE" \
+    --bucket-name "$ORACLE_BUCKET" \
+    --prefix "extracted/" \
+    --download-dir "$SCRATCH/New Data" \
+    --overwrite 2>&1 | tail -5
+echo ""
 
-if [ "$DATASET_COUNT" -gt 0 ]; then
-    echo "  Dataset already present ($DATASET_COUNT images) — skipping download."
-else
-    echo "  Downloading dataset from Oracle (prefix: extracted/)..."
-    echo "  Bucket: $ORACLE_BUCKET"
-    echo ""
-    oci os object bulk-download \
-        --namespace "$ORACLE_NAMESPACE" \
-        --bucket-name "$ORACLE_BUCKET" \
-        --prefix "extracted/" \
-        --download-dir "$SCRATCH/New Data" \
-        --overwrite 2>&1 | grep -v "^$"
+# 3b. Google Drive folder
+echo "  [3b] Pulling from Google Drive..."
+GDRIVE_FOLDER_ID="1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U"
+pip install -q gdown 2>/dev/null || true
+source "$HOME/dinov2_venv/bin/activate" 2>/dev/null || true
+cd "$SCRATCH/New Data/extracted"
+gdown --folder "https://drive.google.com/drive/folders/$GDRIVE_FOLDER_ID" --remaining-ok || true
+echo ""
 
-    FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
-    if [ "$FINAL_COUNT" -gt 0 ]; then
-        echo "  OK: $FINAL_COUNT images downloaded from Oracle."
-    else
-        echo "  WARNING: No images found after Oracle download."
-        echo "  Check that objects exist under prefix 'extracted/' in bucket $ORACLE_BUCKET"
-    fi
-fi
+FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
+echo "  Total images after sync: $FINAL_COUNT"
 
 # 4. Download DinoBloom-G pretrained weights (from Oracle Object Storage)
 DINOBLOOM_ORACLE_PATH="trained-models/dinobloom/DinoBloom-GDinoBloom-G.pth"
