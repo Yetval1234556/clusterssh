@@ -143,7 +143,18 @@ echo ""
 # Write a run_info.txt so each Oracle folder is self-describing
 BEST_SIZE=$(du -sh "$SCRATCH/dinobloom_g_finetuned.pth" 2>/dev/null | cut -f1 || echo "not found")
 LAST_SIZE=$(du -sh "$SCRATCH/checkpoint_latest.pth" 2>/dev/null | cut -f1 || echo "not found")
-LAST_METRIC=$(tail -1 "$SCRATCH/training_metrics.csv" 2>/dev/null || echo "no metrics file")
+
+# Build per-5-epoch metrics table from training_metrics.csv
+METRICS_TABLE=""
+if [ -f "$SCRATCH/training_metrics.csv" ]; then
+    HEADER=$(head -1 "$SCRATCH/training_metrics.csv")
+    METRICS_TABLE="$HEADER"$'\n'
+    # Every 5th epoch (rows where epoch % 5 == 0), plus epoch 75 always
+    METRICS_TABLE+=$(awk -F',' 'NR>1 && ($1 % 5 == 0 || $1 == 75) {print}' "$SCRATCH/training_metrics.csv")
+else
+    METRICS_TABLE="no training_metrics.csv found"
+fi
+
 cat > /tmp/run_info.txt << INFO
 DinoBloom-G Fine-Tuning Run
 ============================
@@ -162,8 +173,9 @@ Files
 best.pth    : $BEST_SIZE  (best validation accuracy)
 last.pth    : $LAST_SIZE  (final checkpoint, use to resume)
 
-Last Metric Row (epoch,step,train_loss,val_loss,train_acc,val_acc,best_acc)
-$LAST_METRIC
+Metrics — every 5 epochs (epoch 5, 10, 15 ... 75)
+---------------------------------------------------
+$METRICS_TABLE
 
 Oracle Path
 -----------
