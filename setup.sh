@@ -204,19 +204,28 @@ else
     echo "  Total images in extracted/: $FINAL_COUNT"
 fi
 
-# 4. Download DinoBloom-G pretrained weights (from Google Drive)
-DINOBLOOM_GDRIVE_ID="1lLbicaSSUHDy0X9_o-XmareFf0rj2Bma"
+# 4. Download DinoBloom-G pretrained weights (from Oracle Object Storage)
+DINOBLOOM_ORACLE_PATH="trained-models/dinobloom/DinoBloom-G.pth"
 echo "[4/5] Checking DinoBloom-G weights..."
 WEIGHTS_SIZE=$(stat -c%s "$SCRATCH/DinoBloom-G.pth" 2>/dev/null || echo 0)
 if [ "$WEIGHTS_SIZE" -gt 104857600 ]; then  # must be >100MB to be valid
     echo "  Weights already present ($(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)) — skipping download."
 else
     [ "$WEIGHTS_SIZE" -gt 0 ] && echo "  Existing weights file is too small ($WEIGHTS_SIZE bytes) — redownloading..."
-    echo "  Downloading DinoBloom-G weights from Google Drive..."
-    echo "  File ID: $DINOBLOOM_GDRIVE_ID"
+    echo "  Downloading DinoBloom-G weights from Oracle..."
+    echo "  Oracle path: $ORACLE_BUCKET/$DINOBLOOM_ORACLE_PATH"
     rm -f "$SCRATCH/DinoBloom-G.pth"
-    pip install -q gdown 2>/dev/null || true
-    gdown "$DINOBLOOM_GDRIVE_ID" -O "$SCRATCH/DinoBloom-G.pth"
+    oci os object get \
+        --namespace $ORACLE_NAMESPACE \
+        --bucket-name $ORACLE_BUCKET \
+        --name "$DINOBLOOM_ORACLE_PATH" \
+        --file "$SCRATCH/DinoBloom-G.pth"
+    if [ $? -ne 0 ] || [ ! -s "$SCRATCH/DinoBloom-G.pth" ]; then
+        echo "  ERROR: Failed to download DinoBloom-G.pth from Oracle."
+        echo "  Expected at: $ORACLE_BUCKET/$DINOBLOOM_ORACLE_PATH"
+        echo "  Upload it first: oci os object put --bucket-name $ORACLE_BUCKET --name \"$DINOBLOOM_ORACLE_PATH\" --file /path/to/DinoBloom-G.pth"
+        exit 1
+    fi
     echo "  Weights downloaded: $(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)"
 fi
 

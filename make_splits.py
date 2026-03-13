@@ -60,9 +60,11 @@ print("  BLOOM — Image Inventory & Split Generator")
 print(SEP)
 
 if not EXTRACTED.exists():
-    print(f"  ERROR: {EXTRACTED} does not exist.")
-    print("  Run setup.bat first to sync archives from Google Drive.")
-    raise SystemExit(1)
+    print(f"  NOTE: {EXTRACTED} does not exist yet.")
+    print("  No images found — skipping split generation.")
+    print("  Place dataset images under New Data/extracted/ and re-run make_splits.py.")
+    print(SEP)
+    raise SystemExit(0)   # exit 0 so setup.bat does not abort
 
 # Try archive* folders first; fall back to any subdirectory with images
 archives = sorted(
@@ -88,10 +90,15 @@ if not archives:
             print(f"  NOTE: No subdirectories found. Scanning extracted/ directly.")
             archives = [EXTRACTED]
         else:
-            print("  ERROR: No images found anywhere in New Data/extracted/")
+            print()
+            print("  NOTE: No images found in New Data/extracted/")
             print(f"  Searched: {EXTRACTED}")
-            print("  Upload your dataset archives to the cluster and re-run.")
-            raise SystemExit(1)
+            print("  If your data is already on the HPC in a different location,")
+            print("  update EXTRACTED in make_splits.py or place images under:")
+            print(f"    {EXTRACTED}")
+            print("  Skipping split generation — train.txt / val.txt not written.")
+            print(SEP)
+            raise SystemExit(0)   # exit 0 so setup.bat does not abort
 
 print(f"  Scanning: {[a.name for a in archives]}")
 print()
