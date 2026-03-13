@@ -36,6 +36,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Copying train/val split files to cluster...
+ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST% "mkdir -p ~/bloomi/New\ Data"
+scp "%SCRIPTDIR%New Data\train.txt" "%SCRIPTDIR%New Data\val.txt" "%CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/New Data/"
+if errorlevel 1 (
+    echo ERROR: Failed to copy train.txt / val.txt.
+    exit /b 1
+)
+
 echo Copying OCI private key to cluster...
 ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST% "mkdir -p ~/.oci && chmod 700 ~/.oci"
 scp "%OCI_KEY%" %CLUSTER_USER%@%CLUSTER_HOST%:~/.oci/oci_api_key.pem

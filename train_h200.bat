@@ -37,6 +37,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Copying train/val split files to cluster...
+ssh -o ConnectTimeout=10 %UNC_USER%@%UNC_HOST% "mkdir -p ~/bloomi/New\ Data"
+scp "%SCRIPTDIR%New Data\train.txt" "%SCRIPTDIR%New Data\val.txt" "%UNC_USER%@%UNC_HOST%:~/bloomi/New Data/"
+if errorlevel 1 (
+    echo ERROR: Failed to copy train.txt / val.txt.
+    exit /b 1
+)
+
 echo Submitting SLURM job with %NGPUS% GPU(s)...
 ssh -o ConnectTimeout=10 %UNC_USER%@%UNC_HOST% "sbatch ~/train_h200.sh %NGPUS%"
 
