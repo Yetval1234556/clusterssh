@@ -22,14 +22,75 @@ echo "User    : $USER"
 echo "Dir     : $SCRATCH"
 echo ""
 
-# 1. Configure OCI CLI
-echo "[1/5] Configuring OCI CLI..."
+# 1. Locate or install OCI CLI
+echo "[1/5] Locating OCI CLI..."
+echo "  Checking standard PATH locations..."
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
-# If still not found, try to locate it
+
+# Step 1a: try module load (HPC clusters often ship oci-cli as a module)
 if ! command -v oci &>/dev/null; then
-    OCI_BIN=$(find $HOME -name "oci" -type f 2>/dev/null | head -1)
-    [ -n "$OCI_BIN" ] && export PATH="$(dirname $OCI_BIN):$PATH"
+    echo "  Trying: module load oci-cli..."
+    module load oci-cli 2>/dev/null && echo "  Loaded via module system." || echo "  Module not available."
 fi
+
+# Step 1b: try known install locations
+if ! command -v oci &>/dev/null; then
+    echo "  Checking known install directories..."
+    for dir in \
+        "$HOME/.local/bin" \
+        "$HOME/bin" \
+        "$HOME/lib/oracle-cli/bin" \
+        "$HOME/.oci/bin" \
+        "/usr/local/bin" \
+        "/opt/oci-cli/bin" \
+        "/opt/oracle/oci/bin"; do
+        if [ -f "$dir/oci" ]; then
+            export PATH="$dir:$PATH"
+            echo "  Found OCI CLI at: $dir/oci"
+            break
+        fi
+    done
+fi
+
+# Step 1c: broad search in $HOME
+if ! command -v oci &>/dev/null; then
+    echo "  Running broad search for 'oci' binary under \$HOME (may take a moment)..."
+    OCI_BIN=$(find "$HOME" -name "oci" -type f 2>/dev/null | head -1)
+    if [ -n "$OCI_BIN" ]; then
+        export PATH="$(dirname $OCI_BIN):$PATH"
+        echo "  Found OCI CLI at: $OCI_BIN"
+    else
+        echo "  OCI CLI not found anywhere on this system."
+    fi
+fi
+
+# Step 1d: pip install as last resort
+if ! command -v oci &>/dev/null; then
+    echo ""
+    echo "  !! OCI CLI missing — installing via pip (this takes 2-4 minutes)..."
+    echo "  Command: pip install --user oci-cli"
+    echo "  ────────────────────────────────────────────────────────────────"
+    pip install --user oci-cli \
+        --progress-bar on \
+        2>&1 | while IFS= read -r line; do echo "  pip | $line"; done
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "  ────────────────────────────────────────────────────────────────"
+    if command -v oci &>/dev/null; then
+        echo "  pip install succeeded."
+    else
+        echo "  FATAL: pip install finished but 'oci' still not found."
+        echo "  Try manually: pip install oci-cli && export PATH=\$HOME/.local/bin:\$PATH"
+        exit 1
+    fi
+fi
+
+echo ""
+echo "  OCI CLI binary  : $(which oci)"
+echo "  OCI CLI version : $(oci --version 2>&1)"
+echo ""
+
+# Step 1e: write config
+echo "  Writing ~/.oci/config..."
 mkdir -p ~/.oci
 cat > ~/.oci/config << OCIEOF
 [DEFAULT]
@@ -39,7 +100,15 @@ tenancy=${OCI_TENANCY}
 region=${ORACLE_REGION}
 OCIEOF
 chmod 600 ~/.oci/config
-oci os ns get > /dev/null && echo "  OCI CLI connected OK" || echo "  WARNING: OCI CLI auth failed — data download may fail"
+echo "  Config written to ~/.oci/config"
+
+echo "  Testing OCI auth..."
+if oci os ns get > /dev/null 2>&1; then
+    echo "  OCI CLI auth   : OK (namespace=$(oci os ns get --query data --raw-output 2>/dev/null))"
+else
+    echo "  WARNING: OCI CLI auth test failed — check credentials or network."
+    echo "  Data download steps below may fail."
+fi
 
 # 2. Clone the repo (public, no auth needed)
 echo "[2/5] Cloning repository..."
@@ -88,7 +157,8 @@ echo "  Conda env ready."
 
 echo ""
 echo "=== Setup complete — submit your training job: ==="
-echo "  sbatch train_h200.sh       (2x H200, default)"
+echo "  sbatch train_h200.sh       (4x H200, default)"
+echo "  sbatch train_h200.sh 2     (2x H200)"
 echo "  sbatch train_h200.sh 1     (1x H200)"
 echo ""
 echo "Monitor with: squeue -u $USER"

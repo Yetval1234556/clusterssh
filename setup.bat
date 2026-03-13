@@ -12,7 +12,7 @@ set CLUSTER_USER=rpatel1
 set SCRIPTDIR=%~dp0
 
 echo Copying scripts to cluster...
-scp "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" %CLUSTER_USER%@%CLUSTER_HOST%:~/
+scp "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/
 if errorlevel 1 (
     echo ERROR: SCP failed. Check CLUSTER_HOST and CLUSTER_USER in setup.bat.
     exit /b 1
