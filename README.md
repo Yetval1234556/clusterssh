@@ -15,14 +15,13 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 | `setup.bat` | Windows (local) | SCPs all scripts + training code to cluster, runs setup remotely |
 | `train_h200.bat` | Windows (local) | SCPs latest training code to cluster, submits `sbatch` job |
 | `monitor.bat` | Windows (local) | Live dashboard — GPU stats, SLURM queue, training metrics |
-| `setup.sh` | Cluster (Linux) | One-time setup: installs OCI CLI, downloads dataset + weights from Oracle, sets up conda env |
+| `setup.sh` | Cluster (Linux) | One-time setup: installs OCI CLI, downloads dataset + weights from Oracle, sets up Python venv |
 | `train_h200.sh` | Cluster (SLURM) | Sbatch job: trains on 4x H200, prints verbose epoch reports, uploads models to Oracle when done |
 | `train_efficientnet_b0.py` | Cluster (Python) | Single-GPU training script |
 | `train_efficientnet_b0_ddp.py` | Cluster (Python) | Multi-GPU DDP training script (used by default with 4x H200) |
 | `requirements.txt` | Cluster | pip dependencies — PyTorch 2.3 + CUDA 12.4 (H200 compatible) |
 | `dinov2/` | Cluster (Python) | Local DinoV2 package — must be in `~/bloomi/` for `from dinov2.hub.backbones import ...` to work |
 | `epoch_report.py` | Cluster (Python) | Imported by training scripts — prints exhaustive every-5-epoch summary to SLURM console |
-| `_monitor_remote.sh` | Cluster (piped via SSH) | Helper script piped by `monitor.bat` — keep in same folder |
 
 ---
 
