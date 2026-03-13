@@ -12,7 +12,7 @@ set UNC_USER=rpatel1
 ::   train_h200.bat 1    (1 GPU)
 
 set NGPUS=%~1
-if "%NGPUS%"=="" set NGPUS=4
+if "%NGPUS%"=="" set NGPUS=2
 
 set SCRIPTDIR=%~dp0
 set SSH=ssh -o ConnectTimeout=10 %UNC_USER%@%UNC_HOST%

@@ -18,7 +18,7 @@
 
 set -e
 
-NGPUS=${1:-4}
+NGPUS=${1:-2}
 RUN_DATE=$(date +%Y%m%d_%H%M%S)
 OCI_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}"
 OCI_NS="idcsxwupyymi"
