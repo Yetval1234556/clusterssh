@@ -22,10 +22,8 @@ echo "User    : $USER"
 echo "Dir     : $SCRATCH"
 echo ""
 
-# 1. Install and configure OCI CLI
+# 1. Configure OCI CLI
 echo "[1/5] Configuring OCI CLI..."
-pip install oci-cli --quiet 2>/dev/null || pip3 install oci-cli --quiet 2>/dev/null || true
-# Add all common install locations to PATH
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
 # If still not found, try to locate it
 if ! command -v oci &>/dev/null; then
