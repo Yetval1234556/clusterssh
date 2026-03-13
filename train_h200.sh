@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=56
-#SBATCH --gres=gpu:h200:4
+#SBATCH --gres=gpu:h200:1
 #SBATCH --mem=900G
 #SBATCH --time=48:00:00
 #SBATCH --nice=0
@@ -18,7 +18,7 @@
 
 set -e
 
-NGPUS=${1:-2}
+NGPUS=${1:-1}
 RUN_DATE=$(date +%Y%m%d_%H%M%S)
 OCI_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}"
 OCI_NS="idcsxwupyymi"

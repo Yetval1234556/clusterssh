@@ -12,7 +12,7 @@ set UNC_USER=rpatel1
 ::   train_h200.bat 1    (1 GPU)
 
 set NGPUS=%~1
-if "%NGPUS%"=="" set NGPUS=2
+if "%NGPUS%"=="" set NGPUS=1
 
 set SCRIPTDIR=%~dp0
 set SSH=ssh -o ConnectTimeout=10 %UNC_USER%@%UNC_HOST%
@@ -90,7 +90,7 @@ echo.
 
 :: ── [5] Submit sbatch job ───────────────────────────────────────────────────
 echo [5/5] Submitting SLURM job (%NGPUS% GPU(s))...
-for /f "tokens=*" %%j in ('%SSH% "sbatch ~/train_h200.sh %NGPUS%"') do (
+for /f "tokens=*" %%j in ('%SSH% "sbatch --gres=gpu:h200:%NGPUS% ~/train_h200.sh %NGPUS%"') do (
     set SBATCH_OUT=%%j
     echo   %%j
 )
