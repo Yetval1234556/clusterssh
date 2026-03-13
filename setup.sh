@@ -15,7 +15,7 @@ ORACLE_NAMESPACE="idcsxwupyymi"
 ORACLE_REGION="us-ashburn-1"
 OCI_USER="ocid1.user.oc1..aaaaaaaa62h4eh56dbwmetzvjnqmhpc6to4horuxtfwmauhjk6dqckzhkjza"
 OCI_TENANCY="ocid1.tenancy.oc1..aaaaaaaaxz235iw5sjl4jhzu7xuo6rcasflfxyrrx4h6murstpvh6c6chlfq"
-OCI_FINGERPRINT="4d:5e:8f:86:13:55:c7:83:4b:04:2e:3e:9b:1a:2c:c9"
+OCI_FINGERPRINT="e5:16:5f:27:13:84:76:c0:31:f3:88:ef:28:2c:32:08"
 
 echo "=== Setting up DinoBloom-G on ncshare H200 ==="
 echo "User    : $USER"
