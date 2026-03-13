@@ -124,14 +124,9 @@ Oracle bucket: bloomi-training-data
     └─ trained-models/unc-h200/job<ID>_<date>/last.pth
 ```
 
-Download a trained model when done:
-```cmd
-ssh rpatel1@login-01.ncshare.org ^
-  "oci os object get --namespace idcsxwupyymi --bucket-name bloomi-training-data ^
-   --name trained-models/unc-h200/job<ID>_<date>/best.pth --file ~/best.pth"
-```
+Download trained models via **Oracle Cloud Console** (easiest):
 
-Browse all runs: [Oracle Cloud Console](https://cloud.oracle.com) → Object Storage → `bloomi-training-data` → `trained-models/`
+[cloud.oracle.com](https://cloud.oracle.com) → Storage → Object Storage → `bloomi-training-data` → `trained-models/` → `unc-h200/` → your job folder → download `best.pth`
 
 ---
 

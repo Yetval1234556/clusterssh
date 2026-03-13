@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\" && rm download.bat)"
+    ]
+  }
+}
