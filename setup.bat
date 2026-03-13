@@ -232,14 +232,13 @@ if "%OCIKEY%"=="yes" (
 )
 echo.
 
-:: ── [7] Clear original DinoBloom-G model ────────────────────────────────────
+:: ── [7] Check DinoBloom-G weights ────────────────────────────────────────────
 echo  ┌───────────────────────────────────────────────────────────────────────┐
-echo  │  [7]   Clear original DinoBloom-G model  (setup.sh re-downloads it   │
-echo  │        from Google Drive — this is the base we fine-tune on top of)  │
+echo  │  [7]   DinoBloom-G weights check                                      │
+echo  │        Skip download if already present on cluster                   │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
-%SSH% "[ -f ~/bloomi/DinoBloom-G.pth ] && rm -f ~/bloomi/DinoBloom-G.pth && echo '    Cleared DinoBloom-G.pth' || echo '    Not present — nothing to remove.'"
-echo    NOTE: setup.sh downloads the original DinoBloom-G from Oracle ^(trained-models/dinobloom/DinoBloom-GDinoBloom-G.pth^).
+%SSH% "if [ -f ~/bloomi/DinoBloom-G.pth ] && [ $(stat -c%%s ~/bloomi/DinoBloom-G.pth) -gt 104857600 ]; then echo '    OK: DinoBloom-G.pth already on cluster ('$(du -sh ~/bloomi/DinoBloom-G.pth | cut -f1)') - skipping download.'; else echo '    Not found or too small - setup.sh will download from Oracle.'; fi"
 echo.
 
 :: ── [8] Run Remote Setup Script ───────────────────────────────────────────────
