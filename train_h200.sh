@@ -19,6 +19,7 @@
 set -e
 
 NGPUS=${1:-1}
+WORKERS=$((NGPUS * 8))  # 8 workers per GPU — scales with GPU count
 RUN_DATE=$(date +%Y%m%d_%H%M%S)
 OCI_PREFIX="trained-models/unc-h200/job${SLURM_JOB_ID}_${RUN_DATE}"
 OCI_NS="idcsxwupyymi"
@@ -138,7 +139,7 @@ if [ "$NGPUS" -eq 1 ]; then
         --batch-size 64 \
         --lr 1e-4 \
         --unfreeze-blocks 4 \
-        --workers 224 \
+        --workers $WORKERS \
         --report-every 5
 else
     echo "  DDP: torchrun across $NGPUS GPUs (effective batch $((64 * NGPUS)))"
@@ -153,7 +154,7 @@ else
             --batch-size 64 \
             --lr 1e-4 \
             --unfreeze-blocks 4 \
-            --workers 224 \
+            --workers $WORKERS \
             --report-every 5
 fi
 
