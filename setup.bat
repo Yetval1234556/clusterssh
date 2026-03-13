@@ -23,7 +23,9 @@ set GDRIVE_ID=1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U
 set GDRIVE_URL=https://drive.google.com/drive/folders/1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U
 :: ──────────────────────────────────────────────────────────────────────────────
 
+:: Strip trailing backslash from SCRIPTDIR (prevents git -C quoting issues)
 set SCRIPTDIR=%~dp0
+if "%SCRIPTDIR:~-1%"=="\" set SCRIPTDIR=%SCRIPTDIR:~0,-1%
 set SSH=ssh -o ConnectTimeout=15 %CLUSTER_USER%@%CLUSTER_HOST%
 
 echo.
@@ -53,9 +55,22 @@ echo  ┌───────────────────────�
 echo  │  [0b]  Cache SSH key  (enter passphrase once, reused for all steps)   │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
+:: Try to start the Windows OpenSSH Authentication Agent service
+net start ssh-agent >nul 2>&1
 sc start ssh-agent >nul 2>&1
+
+:: Check if agent is now reachable
+ssh-add -l >nul 2>&1
+if errorlevel 1 (
+    echo    NOTE: ssh-agent service is not running.
+    echo    To fix permanently, run once in PowerShell as Administrator:
+    echo      Set-Service ssh-agent -StartupType Automatic
+    echo      Start-Service ssh-agent
+    echo    Continuing without agent — you may be prompted for passphrase each step.
+    echo.
+)
 ssh-add %USERPROFILE%\.ssh\id_ed25519
-echo    OK: ssh-agent ready.
+echo    OK: SSH key loaded.
 echo.
 
 :: ── Pre-flight: test SSH connectivity (after key is loaded) ───────────────────
