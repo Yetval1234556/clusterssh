@@ -24,7 +24,9 @@ set GDRIVE_URL=https://drive.google.com/drive/folders/1J5ld-tK6cewj9wXWUi3rs6Udl
 :: ──────────────────────────────────────────────────────────────────────────────
 
 set SCRIPTDIR=%~dp0
-set SSH=ssh -o ConnectTimeout=15 %CLUSTER_USER%@%CLUSTER_HOST%
+set SSHCTL=%TEMP%\bloom-ssh-ctl
+set SSH=ssh -o ControlMaster=auto -o "ControlPath=%SSHCTL%" -o ControlPersist=600 %CLUSTER_USER%@%CLUSTER_HOST%
+set SCP=scp -o ControlMaster=auto -o "ControlPath=%SSHCTL%" -o ControlPersist=600
 
 echo.
 echo  ╔═══════════════════════════════════════════════════════════════════════╗
@@ -108,7 +110,7 @@ echo.
 echo    Files  : setup.sh, train_h200.sh, epoch_report.py
 echo    Target : %CLUSTER_USER%@%CLUSTER_HOST%:~/
 echo.
-scp "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/
+%SCP% "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/
 if errorlevel 1 ( echo    ERROR: SCP failed — aborting. & exit /b 1 )
 echo    OK: Launcher scripts copied.
 echo.
@@ -123,7 +125,7 @@ echo             requirements.txt, epoch_report.py
 echo    Target : %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
 echo.
 %SSH% "mkdir -p ~/bloomi"
-scp "%SCRIPTDIR%train_efficientnet_b0.py" "%SCRIPTDIR%train_efficientnet_b0_ddp.py" "%SCRIPTDIR%requirements.txt" "%SCRIPTDIR%epoch_report.py" "%SCRIPTDIR%make_splits.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
+%SCP% "%SCRIPTDIR%train_efficientnet_b0.py" "%SCRIPTDIR%train_efficientnet_b0_ddp.py" "%SCRIPTDIR%requirements.txt" "%SCRIPTDIR%epoch_report.py" "%SCRIPTDIR%make_splits.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
 if errorlevel 1 ( echo    ERROR: Failed to copy training scripts — aborting. & exit /b 1 )
 echo    OK: Training scripts copied.
 echo.
@@ -138,7 +140,7 @@ if "%DINOV2%"=="yes" (
     echo    SKIP: dinov2 already at ~/bloomi/dinov2/
 ) else (
     echo    NOT FOUND — uploading dinov2 package ^(first time only^)...
-    scp -r "%SCRIPTDIR%dinov2" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
+    %SCP% -r "%SCRIPTDIR%dinov2" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
     if errorlevel 1 ( echo    ERROR: Failed to copy dinov2 — aborting. & exit /b 1 )
     echo    OK: dinov2 uploaded.
 )
@@ -166,14 +168,14 @@ echo.
 
 :: Ensure gdown is installed on cluster
 echo    Ensuring gdown is installed on cluster...
-%SSH% "pip show gdown >nul 2>&1 && echo '    gdown already installed.' || (pip install -q gdown && echo '    gdown installed successfully.')"
+%SSH% "python3 -c 'import gdown' 2>/dev/null && echo '    gdown already installed.' || ( (source ~/dinov2_venv/bin/activate 2>/dev/null && pip install -q gdown && echo '    gdown installed into venv.') || (pip install -q --break-system-packages gdown && echo '    gdown installed (system).') )"
 echo.
 
 :: Smart sync — gdown skips files already present
 echo    Starting smart sync from Google Drive...
 echo    (gdown will skip archives already present, download only new ones)
 echo.
-%SSH% "cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok && echo SYNC_COMPLETE"
+%SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok && echo SYNC_COMPLETE"
 if errorlevel 1 (
     echo.
     echo    ERROR: gdown sync failed — aborting.
@@ -227,7 +229,7 @@ if "%OCIKEY%"=="yes" (
     echo    NOT FOUND — uploading OCI key...
     echo    Local key : %OCI_KEY%
     %SSH% "mkdir -p ~/.oci && chmod 700 ~/.oci"
-    scp "%OCI_KEY%" %CLUSTER_USER%@%CLUSTER_HOST%:~/.oci/oci_api_key.pem
+    %SCP% "%OCI_KEY%" %CLUSTER_USER%@%CLUSTER_HOST%:~/.oci/oci_api_key.pem
     if errorlevel 1 (
         echo    ERROR: Failed to copy OCI key — aborting.
         echo    Expected : %OCI_KEY%
