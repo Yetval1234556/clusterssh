@@ -12,11 +12,14 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 
 | File | Where it runs | What it does |
 |------|--------------|--------------|
-| `setup.bat` | Windows (local) | SCPs all scripts to cluster, then runs `setup.sh` remotely |
-| `train_h200.bat` | Windows (local) | SCPs train scripts to cluster, submits `sbatch` job |
+| `setup.bat` | Windows (local) | SCPs all scripts + training code to cluster, runs setup remotely |
+| `train_h200.bat` | Windows (local) | SCPs latest training code to cluster, submits `sbatch` job |
 | `monitor.bat` | Windows (local) | Live dashboard — GPU stats, SLURM queue, training metrics |
-| `setup.sh` | Cluster (Linux) | One-time setup: installs OCI CLI if missing, downloads dataset + weights from Oracle, sets up conda env |
+| `setup.sh` | Cluster (Linux) | One-time setup: installs OCI CLI, downloads dataset + weights from Oracle, sets up conda env |
 | `train_h200.sh` | Cluster (SLURM) | Sbatch job: trains on 4x H200, prints verbose epoch reports, uploads models to Oracle when done |
+| `train_efficientnet_b0.py` | Cluster (Python) | Single-GPU training script |
+| `train_efficientnet_b0_ddp.py` | Cluster (Python) | Multi-GPU DDP training script (used by default with 4x H200) |
+| `conda.yaml` | Cluster | Conda environment definition (`dinov2` env) |
 | `epoch_report.py` | Cluster (Python) | Imported by training scripts — prints exhaustive every-5-epoch summary to SLURM console |
 | `_monitor_remote.sh` | Cluster (piped via SSH) | Helper script piped by `monitor.bat` — keep in same folder |
 
@@ -28,9 +31,12 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 ```cmd
 .\setup.bat
 ```
-This SCPs `setup.sh`, `train_h200.sh`, and `epoch_report.py` to the cluster, then runs setup remotely.
+This SCPs all scripts and training code to the cluster, then runs setup remotely.
 
 Setup does:
+- SCPs `setup.sh`, `train_h200.sh`, `epoch_report.py` → `~/`
+- SCPs `train_efficientnet_b0.py`, `train_efficientnet_b0_ddp.py`, `conda.yaml`, `epoch_report.py` → `~/bloomi/`
+- SCPs `.pem` key → `~/.oci/oci_api_key.pem`
 - Detects or installs OCI CLI (verbose output, pip fallback if needed)
 - Downloads dataset (~10 GB) from Oracle bucket
 - Downloads DinoBloom-G pretrained weights (~4.4 GB) from Oracle

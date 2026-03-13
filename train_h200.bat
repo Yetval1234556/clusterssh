@@ -16,10 +16,17 @@ if "%NGPUS%"=="" set NGPUS=4
 
 set SCRIPTDIR=%~dp0
 
-echo Copying scripts to cluster...
+echo Copying launcher scripts to cluster...
 scp "%SCRIPTDIR%train_h200.sh" "%SCRIPTDIR%epoch_report.py" %UNC_USER%@%UNC_HOST%:~/
 if errorlevel 1 (
     echo ERROR: SCP failed. Check your host and username in train_h200.bat.
+    exit /b 1
+)
+
+echo Copying training scripts to cluster...
+scp "%SCRIPTDIR%train_efficientnet_b0.py" "%SCRIPTDIR%train_efficientnet_b0_ddp.py" "%SCRIPTDIR%conda.yaml" "%SCRIPTDIR%epoch_report.py" %UNC_USER%@%UNC_HOST%:~/bloomi/
+if errorlevel 1 (
+    echo ERROR: Failed to copy training scripts.
     exit /b 1
 )
 

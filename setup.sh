@@ -9,7 +9,6 @@ sed -i 's/\r//' "$0" 2>/dev/null || true
 set -e
 
 SCRATCH=/hpc/home/$USER/bloomi
-REPO_URL="https://github.com/Yetval1234556/DinoModelsEXTRA.git"
 ORACLE_BUCKET="bloomi-training-data"
 ORACLE_NAMESPACE="idcsxwupyymi"
 ORACLE_REGION="us-ashburn-1"
@@ -132,16 +131,17 @@ else
     echo "  Data download steps below may fail."
 fi
 
-# 2. Clone the repo (public, no auth needed)
-echo "[2/5] Cloning repository..."
+# 2. Create working directory (training scripts already SCPd by setup.bat)
+echo "[2/5] Preparing working directory..."
 mkdir -p $SCRATCH
-cd /hpc/home/$USER
-if [ -d "bloomi/.git" ]; then
-    echo "  Repo exists, updating..."
-    cd bloomi && GIT_TERMINAL_PROMPT=0 git pull
+echo "  Scratch dir : $SCRATCH"
+echo "  Training scripts expected in $SCRATCH (SCPd by setup.bat)"
+if [ -f "$SCRATCH/train_efficientnet_b0.py" ] && [ -f "$SCRATCH/train_efficientnet_b0_ddp.py" ]; then
+    echo "  train_efficientnet_b0.py     : OK"
+    echo "  train_efficientnet_b0_ddp.py : OK"
 else
-    GIT_TERMINAL_PROMPT=0 git clone $REPO_URL bloomi
-    cd bloomi
+    echo "  WARNING: Training scripts not found in $SCRATCH"
+    echo "  Make sure setup.bat completed successfully before running the training job."
 fi
 
 # 3. Pull dataset from Oracle Object Storage

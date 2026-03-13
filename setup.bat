@@ -12,10 +12,20 @@ set OCI_KEY=%~dp0yetvald@gmail.com-2026-03-13T02_48_12.614Z.pem
 
 set SCRIPTDIR=%~dp0
 
-echo Copying scripts to cluster...
+echo Copying launcher scripts to cluster...
 scp "%SCRIPTDIR%setup.sh" "%SCRIPTDIR%train_h200.sh" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/
 if errorlevel 1 (
     echo ERROR: SCP failed. Check CLUSTER_HOST and CLUSTER_USER in setup.bat.
+    exit /b 1
+)
+
+echo Creating bloomi directory on cluster...
+ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST% "mkdir -p ~/bloomi"
+
+echo Copying training scripts to cluster...
+scp "%SCRIPTDIR%train_efficientnet_b0.py" "%SCRIPTDIR%train_efficientnet_b0_ddp.py" "%SCRIPTDIR%conda.yaml" "%SCRIPTDIR%epoch_report.py" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
+if errorlevel 1 (
+    echo ERROR: Failed to copy training scripts.
     exit /b 1
 )
 
