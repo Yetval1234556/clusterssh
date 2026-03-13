@@ -10,6 +10,12 @@ set OCI_KEY=%~dp0yetvald@gmail.com-2026-03-13T02_48_12.614Z.pem
 set SCRIPTDIR=%~dp0
 set SSH=ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST%
 
+:: Pull latest from GitHub before anything else
+echo [0a] Pulling latest from GitHub...
+git -C "%SCRIPTDIR%" pull
+if errorlevel 1 ( echo WARNING: git pull failed — using local files. )
+echo.
+
 :: Cache SSH passphrase once for the whole session
 echo [0] Caching SSH key passphrase (enter once, reused for all steps)...
 sc start ssh-agent >nul 2>&1
