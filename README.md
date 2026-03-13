@@ -34,14 +34,14 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 ```
 This SCPs all scripts and training code to the cluster, then runs setup remotely.
 
-Setup does:
-- SCPs `setup.sh`, `train_h200.sh`, `epoch_report.py` → `~/`
-- SCPs `train_efficientnet_b0.py`, `train_efficientnet_b0_ddp.py`, `conda.yaml`, `epoch_report.py` → `~/bloomi/`
-- SCPs `.pem` key → `~/.oci/oci_api_key.pem`
-- Detects or installs OCI CLI (verbose output, pip fallback if needed)
-- Downloads dataset (~10 GB) from Oracle bucket
-- Downloads DinoBloom-G pretrained weights (~4.4 GB) from Oracle
-- Creates `dinov2` conda environment
+Setup is smart — skips anything already on the cluster:
+- Always copies launcher + training scripts (fast, ensures latest version)
+- Skips `dinov2/` SCP if already present on cluster
+- Skips `train.txt` / `val.txt` SCP if already present
+- Skips OCI key SCP if already present
+- Skips dataset download if >1000 images already in `~/bloomi/New Data/extracted/`
+- Skips weights download if `DinoBloom-G.pth` already exists
+- Skips conda env creation if `dinov2` env already exists (runs update instead)
 
 ### Step 2 — Submit training job
 ```cmd

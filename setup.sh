@@ -145,27 +145,39 @@ else
 fi
 
 # 3. Pull dataset from Oracle Object Storage
-echo "[3/5] Downloading dataset from Oracle bucket (~10GB)..."
+echo "[3/5] Checking dataset..."
 mkdir -p "$SCRATCH/New Data/extracted"
-oci os object bulk-download \
-    --namespace $ORACLE_NAMESPACE \
-    --bucket-name $ORACLE_BUCKET \
-    --download-dir "$SCRATCH/New Data/extracted" \
-    --prefix "extracted/" \
-    --overwrite
-echo "  Dataset downloaded."
+DATASET_COUNT=$(find "$SCRATCH/New Data/extracted" -name "*.jpg" 2>/dev/null | wc -l)
+if [ "$DATASET_COUNT" -gt 1000 ]; then
+    echo "  Dataset already present ($DATASET_COUNT images) — skipping download."
+else
+    echo "  Downloading dataset from Oracle (~10GB)..."
+    oci os object bulk-download \
+        --namespace $ORACLE_NAMESPACE \
+        --bucket-name $ORACLE_BUCKET \
+        --download-dir "$SCRATCH/New Data/extracted" \
+        --prefix "extracted/" \
+        --overwrite
+    echo "  Dataset downloaded."
+fi
 
 # 4. Download DinoBloom-G pretrained weights
-echo "[4/5] Downloading DinoBloom-G weights (~4.4GB)..."
-oci os object get \
-    --namespace $ORACLE_NAMESPACE \
-    --bucket-name $ORACLE_BUCKET \
-    --name "trained-models/dinobloom/dinobloom_g_finetuned.pth" \
-    --file "$SCRATCH/DinoBloom-G.pth"
-echo "  Weights downloaded."
+echo "[4/5] Checking DinoBloom-G weights..."
+if [ -f "$SCRATCH/DinoBloom-G.pth" ]; then
+    SIZE=$(du -sh "$SCRATCH/DinoBloom-G.pth" | cut -f1)
+    echo "  Weights already present ($SIZE) — skipping download."
+else
+    echo "  Downloading DinoBloom-G weights (~4.4GB)..."
+    oci os object get \
+        --namespace $ORACLE_NAMESPACE \
+        --bucket-name $ORACLE_BUCKET \
+        --name "trained-models/dinobloom/dinobloom_g_finetuned.pth" \
+        --file "$SCRATCH/DinoBloom-G.pth"
+    echo "  Weights downloaded."
+fi
 
 # 5. Set up conda environment
-echo "[5/5] Setting up conda environment..."
+echo "[5/5] Checking conda environment..."
 module load conda 2>/dev/null || true
 if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
     source "$HOME/miniconda3/etc/profile.d/conda.sh"
@@ -174,7 +186,13 @@ elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
 elif [ -f "/opt/conda/etc/profile.d/conda.sh" ]; then
     source "/opt/conda/etc/profile.d/conda.sh"
 fi
-conda env create -f $SCRATCH/conda.yaml -n dinov2 2>/dev/null || conda env update -f $SCRATCH/conda.yaml -n dinov2
+if conda env list | grep -q "^dinov2 "; then
+    echo "  Conda env 'dinov2' already exists — skipping creation."
+    conda env update -f $SCRATCH/conda.yaml -n dinov2 --prune 2>/dev/null || true
+else
+    echo "  Creating conda env 'dinov2'..."
+    conda env create -f $SCRATCH/conda.yaml -n dinov2
+fi
 echo "  Conda env ready."
 
 echo ""
