@@ -496,5 +496,6 @@ if __name__ == "__main__":
     parser.add_argument("--unfreeze-blocks", type=int,   default=4)
     parser.add_argument("--workers",         type=int,   default=8)
     parser.add_argument("--resume",          action="store_true")
+    parser.add_argument("--report-every",   type=int,   default=5)
     args = parser.parse_args()
     train(args)
