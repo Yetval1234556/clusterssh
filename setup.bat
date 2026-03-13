@@ -73,6 +73,10 @@ if "%OCIKEY%"=="yes" (
     echo     OCI key copied and secured.
 )
 
+:: Force re-download of DinoBloom-G weights from Oracle (always use latest)
+echo [6] Clearing old DinoBloom-G weights on cluster (will re-download fresh from Oracle)...
+%SSH% "rm -f ~/bloomi/DinoBloom-G.pth && echo     Cleared."
+
 :: Run setup on cluster
-echo [6] Running setup on cluster...
+echo [7] Running setup on cluster...
 %SSH% "sed -i 's/\r//' ~/setup.sh && bash ~/setup.sh"
