@@ -19,7 +19,7 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 | `train_h200.sh` | Cluster (SLURM) | Sbatch job: trains on 4x H200, prints verbose epoch reports, uploads models to Oracle when done |
 | `train_efficientnet_b0.py` | Cluster (Python) | Single-GPU training script |
 | `train_efficientnet_b0_ddp.py` | Cluster (Python) | Multi-GPU DDP training script (used by default with 4x H200) |
-| `conda.yaml` | Cluster | Conda environment definition (`dinov2` env) |
+| `requirements.txt` | Cluster | pip dependencies — PyTorch 2.3 + CUDA 12.4 (H200 compatible) |
 | `dinov2/` | Cluster (Python) | Local DinoV2 package — must be in `~/bloomi/` for `from dinov2.hub.backbones import ...` to work |
 | `epoch_report.py` | Cluster (Python) | Imported by training scripts — prints exhaustive every-5-epoch summary to SLURM console |
 | `_monitor_remote.sh` | Cluster (piped via SSH) | Helper script piped by `monitor.bat` — keep in same folder |
@@ -40,8 +40,8 @@ Setup is smart — skips anything already on the cluster:
 - Skips `train.txt` / `val.txt` SCP if already present
 - Skips OCI key SCP if already present
 - Skips dataset download if >1000 images already in `~/bloomi/New Data/extracted/`
-- Skips weights download if `DinoBloom-G.pth` already exists
-- Skips conda env creation if `dinov2` env already exists (runs update instead)
+- Skips weights download if `DinoBloom-G.pth` already exists (checks size, not just presence)
+- Skips venv creation if `~/dinov2_venv` already exists (no conda — uses Python 3.12 venv)
 
 ### Step 2 — Submit training job
 ```cmd
@@ -142,4 +142,4 @@ Download trained models via **Oracle Cloud Console** (easiest):
 - **Windows 10/11** — SSH and SCP are built in (open CMD and run `ssh` to verify)
 - **PowerShell** — always prefix scripts with `.\` (e.g. `.\setup.bat`)
 - **OCI CLI** — installed automatically by `setup.sh` if missing (verbose output shown)
-- **conda** — set up automatically by `setup.sh`
+- **Python env** — `setup.sh` creates `~/dinov2_venv` using Python 3.12 `venv` + pip (no conda needed)
