@@ -140,6 +140,42 @@ echo "  Bucket : $OCI_BUCKET"
 echo "  Folder : $OCI_PREFIX"
 echo ""
 
+# Write a run_info.txt so each Oracle folder is self-describing
+BEST_SIZE=$(du -sh "$SCRATCH/dinobloom_g_finetuned.pth" 2>/dev/null | cut -f1 || echo "not found")
+LAST_SIZE=$(du -sh "$SCRATCH/checkpoint_latest.pth" 2>/dev/null | cut -f1 || echo "not found")
+LAST_METRIC=$(tail -1 "$SCRATCH/training_metrics.csv" 2>/dev/null || echo "no metrics file")
+cat > /tmp/run_info.txt << INFO
+DinoBloom-G Fine-Tuning Run
+============================
+Job ID      : $SLURM_JOB_ID
+Date        : $RUN_DATE
+Node        : $(hostname)
+GPUs        : ${NGPUS}x H200 (96GB each)
+Epochs      : 75
+Batch/GPU   : 64  (effective: $((64 * NGPUS)))
+LR          : 1e-4
+Unfreeze    : 4 blocks
+Workers     : 224
+
+Files
+------
+best.pth    : $BEST_SIZE  (best validation accuracy)
+last.pth    : $LAST_SIZE  (final checkpoint, use to resume)
+
+Last Metric Row (epoch,step,train_loss,val_loss,train_acc,val_acc,best_acc)
+$LAST_METRIC
+
+Oracle Path
+-----------
+$OCI_PREFIX/
+INFO
+oci os object put \
+    --namespace $OCI_NS --bucket-name $OCI_BUCKET \
+    --name "$OCI_PREFIX/run_info.txt" \
+    --file /tmp/run_info.txt --force
+echo "  Uploaded → $OCI_PREFIX/run_info.txt"
+echo ""
+
 if [ -f "$SCRATCH/dinobloom_g_finetuned.pth" ]; then
     SIZE=$(du -sh "$SCRATCH/dinobloom_g_finetuned.pth" | cut -f1)
     echo "  best.pth ($SIZE) → uploading..."
