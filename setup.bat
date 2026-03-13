@@ -41,12 +41,19 @@ echo  ┌───────────────────────�
 echo  │  [0a]  Pull latest from GitHub                                        │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
-pushd "%SCRIPTDIR%" && git pull origin master && popd
+pushd "%SCRIPTDIR%"
+git remote get-url origin >nul 2>&1
 if errorlevel 1 (
-    echo    WARNING: git pull failed — using local files.
+    echo    Setting remote origin to GitHub...
+    git remote add origin https://github.com/Yetval1234556/clusterssh.git
+)
+git pull origin master
+if errorlevel 1 (
+    echo    WARNING: git pull failed - using local files.
 ) else (
     echo    OK: Repository is up to date.
 )
+popd
 echo.
 
 :: ── [0b] SSH Key Cache — must happen BEFORE any SSH/SCP calls ────────────────
@@ -62,25 +69,21 @@ sc start ssh-agent >nul 2>&1
 ssh-add -l >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo  ╔═══════════════════════════════════════════════════════════════════════╗
-    echo  ║  ACTION REQUIRED — SSH Agent is not running                          ║
-    echo  ║                                                                       ║
-    echo  ║  You will be asked for your passphrase on every SSH step.            ║
-    echo  ║  To fix this permanently, run these TWO commands in PowerShell       ║
-    echo  ║  as Administrator (right-click PowerShell ^> Run as administrator):  ║
-    echo  ║                                                                       ║
-    echo  ║    Set-Service ssh-agent -StartupType Automatic                      ║
-    echo  ║    Start-Service ssh-agent                                            ║
-    echo  ║                                                                       ║
-    echo  ║  Then close this window and re-run setup.bat.                        ║
-    echo  ╚═══════════════════════════════════════════════════════════════════════╝
+    echo  *** ACTION REQUIRED: ssh-agent is not running ***
+    echo  You will be prompted for your passphrase on every SSH step.
+    echo  To fix permanently, run these in PowerShell as Administrator:
+    echo.
+    echo    Set-Service ssh-agent -StartupType Automatic
+    echo    Start-Service ssh-agent
+    echo.
+    echo  Then re-run setup.bat.
     echo.
 )
 ssh-add %USERPROFILE%\.ssh\id_ed25519
 if errorlevel 1 (
-    echo    WARNING: Could not add key to agent. Passphrase will be required per step.
+    echo    WARNING: Could not add key to agent. Passphrase required per step.
 ) else (
-    echo    OK: SSH key loaded into agent — no more passphrase prompts this session.
+    echo    OK: SSH key loaded into agent.
 )
 echo.
 
