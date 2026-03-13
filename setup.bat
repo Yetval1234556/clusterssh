@@ -58,18 +58,30 @@ echo.
 net start ssh-agent >nul 2>&1
 sc start ssh-agent >nul 2>&1
 
-:: Check if agent is now reachable
+:: Check if agent is reachable
 ssh-add -l >nul 2>&1
 if errorlevel 1 (
-    echo    NOTE: ssh-agent service is not running.
-    echo    To fix permanently, run once in PowerShell as Administrator:
-    echo      Set-Service ssh-agent -StartupType Automatic
-    echo      Start-Service ssh-agent
-    echo    Continuing without agent — you may be prompted for passphrase each step.
+    echo.
+    echo  ╔═══════════════════════════════════════════════════════════════════════╗
+    echo  ║  ACTION REQUIRED — SSH Agent is not running                          ║
+    echo  ║                                                                       ║
+    echo  ║  You will be asked for your passphrase on every SSH step.            ║
+    echo  ║  To fix this permanently, run these TWO commands in PowerShell       ║
+    echo  ║  as Administrator (right-click PowerShell ^> Run as administrator):  ║
+    echo  ║                                                                       ║
+    echo  ║    Set-Service ssh-agent -StartupType Automatic                      ║
+    echo  ║    Start-Service ssh-agent                                            ║
+    echo  ║                                                                       ║
+    echo  ║  Then close this window and re-run setup.bat.                        ║
+    echo  ╚═══════════════════════════════════════════════════════════════════════╝
     echo.
 )
 ssh-add %USERPROFILE%\.ssh\id_ed25519
-echo    OK: SSH key loaded.
+if errorlevel 1 (
+    echo    WARNING: Could not add key to agent. Passphrase will be required per step.
+) else (
+    echo    OK: SSH key loaded into agent — no more passphrase prompts this session.
+)
 echo.
 
 :: ── Pre-flight: test SSH connectivity (after key is loaded) ───────────────────

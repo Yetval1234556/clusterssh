@@ -64,17 +64,36 @@ if not EXTRACTED.exists():
     print("  Run setup.bat first to sync archives from Google Drive.")
     raise SystemExit(1)
 
+# Try archive* folders first; fall back to any subdirectory with images
 archives = sorted(
     [d for d in EXTRACTED.iterdir() if d.is_dir() and d.name.startswith("archive")],
     key=lambda p: p.name,
 )
 
 if not archives:
-    print("  ERROR: No archive* folders found in New Data/extracted/")
-    print("  Google Drive sync may not have completed.")
-    raise SystemExit(1)
+    # Fall back: any direct subdirectory of extracted/
+    all_subdirs = sorted([d for d in EXTRACTED.iterdir() if d.is_dir()], key=lambda p: p.name)
+    if all_subdirs:
+        print(f"  NOTE: No archive* folders found. Using all subdirectories as dataset roots:")
+        for d in all_subdirs:
+            print(f"    {d.name}")
+        archives = all_subdirs
+    else:
+        # Last resort: treat extracted/ itself as the root
+        any_images = any(
+            f.suffix.lower() in VALID_EXTS
+            for f in EXTRACTED.rglob("*") if f.is_file()
+        )
+        if any_images:
+            print(f"  NOTE: No subdirectories found. Scanning extracted/ directly.")
+            archives = [EXTRACTED]
+        else:
+            print("  ERROR: No images found anywhere in New Data/extracted/")
+            print(f"  Searched: {EXTRACTED}")
+            print("  Upload your dataset archives to the cluster and re-run.")
+            raise SystemExit(1)
 
-print(f"  Archives found: {[a.name for a in archives]}")
+print(f"  Scanning: {[a.name for a in archives]}")
 print()
 
 # ── Scan images ───────────────────────────────────────────────────────────────
