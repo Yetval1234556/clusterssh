@@ -10,7 +10,7 @@ setlocal enabledelayedexpansion
 ::     - Pre-flight SSH test + disk space check before touching anything
 ::     - Dataset synced from Google Drive folder (gdown --remaining-ok, skips existing)
 ::     - Shows before/after archive inventory with sizes
-::     - DinoBloom-G weights pulled from Google Drive (gdown, skips if already present)
+::     - DinoBloom-G weights pulled from Oracle Object Storage (skips if already present)
 ::     - Skips every step already done on the cluster
 ::     - Auto-generates train.txt / val.txt via make_splits.py if missing
 :: ═══════════════════════════════════════════════════════════════════════════════
@@ -282,7 +282,7 @@ echo  │        from Google Drive — this is the base we fine-tune on top of) 
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
 %SSH% "[ -f ~/bloomi/DinoBloom-G.pth ] && rm -f ~/bloomi/DinoBloom-G.pth && echo '    Cleared DinoBloom-G.pth' || echo '    Not present — nothing to remove.'"
-echo    NOTE: setup.sh downloads the original DinoBloom-G from Google Drive ^(gdown^).
+echo    NOTE: setup.sh downloads the original DinoBloom-G from Oracle ^(trained-models/dinobloom/DinoBloom-GDinoBloom-G.pth^).
 echo.
 
 :: ── [8] Run Remote Setup Script ───────────────────────────────────────────────

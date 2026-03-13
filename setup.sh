@@ -176,14 +176,10 @@ else
             --file "$DEST"
         echo "  Downloaded: $(du -sh "$DEST" | cut -f1)"
     else
-        echo "  Not in Oracle yet — downloading from Google Drive..."
-        echo "  Installing gdown if needed..."
-        pip install -q gdown 2>/dev/null || pip3 install -q gdown 2>/dev/null || true
-        cd "$SCRATCH/New Data"
-        gdown 1lLbicaSSUHDy0X9_o-XmareFf0rj2Bma
-        DEST=$(ls -t "$SCRATCH/New Data" | grep -v extracted | head -1)
-        DEST="$SCRATCH/New Data/$DEST"
-        echo "  Downloaded: $(du -sh "$DEST" | cut -f1)"
+        echo "  WARNING: Dataset not found in Oracle under prefix 'extracted/main_dataset'."
+        echo "  Upload your dataset archive to Oracle first:"
+        echo "    oci os object put --bucket-name $ORACLE_BUCKET --name \"extracted/main_dataset.zip\" --file /path/to/dataset.zip"
+        echo "  Skipping dataset download — training will fail if no images are present."
     fi
 
     # Extract based on file type
