@@ -174,7 +174,9 @@ echo.
 
 :: ── [4a] Oracle ───────────────────────────────────────────────────────────────
 echo    [4a] Pulling from Oracle (prefix: extracted/)...
-%SSH% "export PATH=$HOME/.local/bin:$HOME/bin:$PATH; mkdir -p ~/bloomi/'New Data'; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite 2>&1 | tail -5"
+echo    Downloading - each file will print as it lands:
+echo.
+%SSH% "export PATH=$HOME/.local/bin:$HOME/bin:$PATH; mkdir -p ~/bloomi/'New Data'; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite"
 echo.
 
 :: ── [4b] Google Drive ─────────────────────────────────────────────────────────

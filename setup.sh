@@ -155,7 +155,7 @@ oci os object bulk-download \
     --bucket-name "$ORACLE_BUCKET" \
     --prefix "extracted/" \
     --download-dir "$SCRATCH/New Data" \
-    --overwrite 2>&1 | tail -5
+    --overwrite
 echo ""
 
 # 3b. Google Drive folder
