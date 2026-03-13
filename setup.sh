@@ -64,22 +64,43 @@ if ! command -v oci &>/dev/null; then
     fi
 fi
 
-# Step 1d: pip install as last resort
+# Step 1d: install as last resort — try pipx first, then pip --break-system-packages
 if ! command -v oci &>/dev/null; then
     echo ""
-    echo "  !! OCI CLI missing — installing via pip (this takes 2-4 minutes)..."
-    echo "  Command: pip install --user oci-cli"
+    echo "  !! OCI CLI missing — attempting install (this takes 2-4 minutes)..."
     echo "  ────────────────────────────────────────────────────────────────"
-    pip install --user oci-cli \
-        --progress-bar on \
-        2>&1 | while IFS= read -r line; do echo "  pip | $line"; done
-    export PATH="$HOME/.local/bin:$PATH"
+
+    # Try pipx first (cleanest — manages its own venv, no system interference)
+    if command -v pipx &>/dev/null; then
+        echo "  Method: pipx install oci-cli"
+        pipx install oci-cli 2>&1 | while IFS= read -r line; do echo "  pipx | $line"; done
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    # Try pip --user (standard)
+    if ! command -v oci &>/dev/null; then
+        echo "  Method: pip install --user oci-cli"
+        pip install --user oci-cli --progress-bar on \
+            2>&1 | while IFS= read -r line; do echo "  pip  | $line"; done
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
+    # Try pip --user --break-system-packages (Debian/Ubuntu PEP 668 systems)
+    if ! command -v oci &>/dev/null; then
+        echo "  System Python is externally managed (PEP 668 / Debian)."
+        echo "  Method: pip install --user --break-system-packages oci-cli"
+        pip install --user --break-system-packages oci-cli --progress-bar on \
+            2>&1 | while IFS= read -r line; do echo "  pip  | $line"; done
+        export PATH="$HOME/.local/bin:$PATH"
+    fi
+
     echo "  ────────────────────────────────────────────────────────────────"
     if command -v oci &>/dev/null; then
-        echo "  pip install succeeded."
+        echo "  Install succeeded."
     else
-        echo "  FATAL: pip install finished but 'oci' still not found."
-        echo "  Try manually: pip install oci-cli && export PATH=\$HOME/.local/bin:\$PATH"
+        echo "  FATAL: could not install OCI CLI via pipx or pip."
+        echo "  Ask your sysadmin to install oci-cli, or run:"
+        echo "    pip install --user --break-system-packages oci-cli"
         exit 1
     fi
 fi
