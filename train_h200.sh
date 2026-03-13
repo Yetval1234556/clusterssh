@@ -10,7 +10,7 @@
 #SBATCH --constraint=h200
 #SBATCH --mem=900G
 #SBATCH --time=96:00:00
-#SBATCH --nice=10000
+#SBATCH --nice=0
 
 # Usage:
 #   sbatch train_h200.sh       (4 GPUs default)
