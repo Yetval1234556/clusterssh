@@ -30,6 +30,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Copying dinov2 package to cluster...
+scp -r "%SCRIPTDIR%dinov2" %UNC_USER%@%UNC_HOST%:~/bloomi/
+if errorlevel 1 (
+    echo ERROR: Failed to copy dinov2 package.
+    exit /b 1
+)
+
 echo Submitting SLURM job with %NGPUS% GPU(s)...
 ssh -o ConnectTimeout=10 %UNC_USER%@%UNC_HOST% "sbatch ~/train_h200.sh %NGPUS%"
 

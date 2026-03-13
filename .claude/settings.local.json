@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cd \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\" && rm download.bat)",
-      "Bash(cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\train_efficientnet_b0.py\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\train_efficientnet_b0.py\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\train_efficientnet_b0_ddp.py\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\train_efficientnet_b0_ddp.py\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\conda.yaml\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\conda.yaml\")"
+      "Bash(cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\train_efficientnet_b0.py\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\train_efficientnet_b0.py\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\train_efficientnet_b0_ddp.py\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\train_efficientnet_b0_ddp.py\" && cp \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\conda.yaml\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\conda.yaml\")",
+      "Bash(cp -r \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\dinov2\" \"C:\\\\Users\\\\19802\\\\Downloads\\\\bloomi extra\\\\clusterssh\\\\dinov2\")"
     ]
   }
 }

@@ -20,6 +20,7 @@ Storage: Oracle Object Storage (`bloomi-training-data`, region `us-ashburn-1`)
 | `train_efficientnet_b0.py` | Cluster (Python) | Single-GPU training script |
 | `train_efficientnet_b0_ddp.py` | Cluster (Python) | Multi-GPU DDP training script (used by default with 4x H200) |
 | `conda.yaml` | Cluster | Conda environment definition (`dinov2` env) |
+| `dinov2/` | Cluster (Python) | Local DinoV2 package — must be in `~/bloomi/` for `from dinov2.hub.backbones import ...` to work |
 | `epoch_report.py` | Cluster (Python) | Imported by training scripts — prints exhaustive every-5-epoch summary to SLURM console |
 | `_monitor_remote.sh` | Cluster (piped via SSH) | Helper script piped by `monitor.bat` — keep in same folder |
 

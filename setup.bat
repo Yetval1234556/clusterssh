@@ -29,6 +29,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
+echo Copying dinov2 package to cluster...
+scp -r "%SCRIPTDIR%dinov2" %CLUSTER_USER%@%CLUSTER_HOST%:~/bloomi/
+if errorlevel 1 (
+    echo ERROR: Failed to copy dinov2 package.
+    exit /b 1
+)
+
 echo Copying OCI private key to cluster...
 ssh -o ConnectTimeout=10 %CLUSTER_USER%@%CLUSTER_HOST% "mkdir -p ~/.oci && chmod 700 ~/.oci"
 scp "%OCI_KEY%" %CLUSTER_USER%@%CLUSTER_HOST%:~/.oci/oci_api_key.pem
