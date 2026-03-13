@@ -42,7 +42,7 @@ echo  ┌───────────────────────�
 echo  │  [0a]  Pull latest from GitHub                                        │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
-git -C "%SCRIPTDIR%" pull
+git -C "%SCRIPTDIR%" pull origin master
 if errorlevel 1 (
     echo    WARNING: git pull failed — using local files.
 ) else (
@@ -75,7 +75,7 @@ echo.
 
 :: ── Pre-flight: test SSH connectivity (after key is loaded) ───────────────────
 echo  [preflight] Testing SSH connection to cluster...
-%SSH% -o BatchMode=yes "echo OK" >nul 2>&1
+%SSH% "echo OK" >nul 2>&1
 if errorlevel 1 (
     echo.
     echo  ERROR: Cannot reach %CLUSTER_HOST%
