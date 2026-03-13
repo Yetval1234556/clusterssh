@@ -23,9 +23,7 @@ set GDRIVE_ID=1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U
 set GDRIVE_URL=https://drive.google.com/drive/folders/1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U
 :: ──────────────────────────────────────────────────────────────────────────────
 
-:: Strip trailing backslash from SCRIPTDIR (prevents git -C quoting issues)
 set SCRIPTDIR=%~dp0
-if "%SCRIPTDIR:~-1%"=="\" set SCRIPTDIR=%SCRIPTDIR:~0,-1%
 set SSH=ssh -o ConnectTimeout=15 %CLUSTER_USER%@%CLUSTER_HOST%
 
 echo.
@@ -42,7 +40,7 @@ echo  ┌───────────────────────�
 echo  │  [0a]  Pull latest from GitHub                                        │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
-git -C "%SCRIPTDIR%" pull origin master
+pushd "%SCRIPTDIR%" && git pull origin master && popd
 if errorlevel 1 (
     echo    WARNING: git pull failed — using local files.
 ) else (
