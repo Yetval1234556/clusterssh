@@ -205,7 +205,7 @@ else
 fi
 
 # 4. Download DinoBloom-G pretrained weights (from Oracle Object Storage)
-DINOBLOOM_ORACLE_PATH="trained-models/dinobloom/DinoBloom-G.pth"
+DINOBLOOM_ORACLE_PATH="trained-models/dinobloom/DinoBloom-GDinoBloom-G.pth"
 echo "[4/5] Checking DinoBloom-G weights..."
 WEIGHTS_SIZE=$(stat -c%s "$SCRATCH/DinoBloom-G.pth" 2>/dev/null || echo 0)
 if [ "$WEIGHTS_SIZE" -gt 104857600 ]; then  # must be >100MB to be valid
