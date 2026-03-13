@@ -165,7 +165,28 @@ else
 fi
 
 echo ""
+echo "--- Verifying uploads on Oracle ---"
+oci os object list \
+    --namespace $OCI_NS \
+    --bucket-name $OCI_BUCKET \
+    --prefix "$OCI_PREFIX/" \
+    --query 'data[].{name:name, size:"size"}' \
+    --output table
+echo ""
+echo "--- All runs stored in Oracle ---"
+oci os object list \
+    --namespace $OCI_NS \
+    --bucket-name $OCI_BUCKET \
+    --prefix "trained-models/unc-h200/" \
+    --query 'data[].{name:name, size:"size"}' \
+    --output table
+
+echo ""
 echo "========================================================"
 echo "  All done — $(date)"
 echo "  Models at: oci://$OCI_BUCKET/$OCI_PREFIX"
+echo ""
+echo "  Download best model:"
+echo "    oci os object get --namespace $OCI_NS --bucket-name $OCI_BUCKET \\"
+echo "      --name \"$OCI_PREFIX/best.pth\" --file ~/dinobloom_finetuned.pth"
 echo "========================================================"
