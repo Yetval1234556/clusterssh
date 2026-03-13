@@ -208,24 +208,22 @@ echo    Ensuring gdown is installed on cluster...
 %SSH% "python3 -c 'import gdown' 2>/dev/null && echo '    gdown already installed.' || ( (source ~/dinov2_venv/bin/activate 2>/dev/null && pip install -q gdown && echo '    gdown installed into venv.') || (pip install -q --break-system-packages gdown && echo '    gdown installed (system).') )"
 echo.
 
-:: Smart sync — gdown skips files already present
+:: Smart sync — gdown skips files already present; --remaining-ok skips restricted files
 echo    Downloading from Google Drive (this may take a while)...
+echo    Note: restricted files (e.g. labels.zip) will be skipped automatically.
 echo.
-%SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; mkdir -p ~/bloomi/'New Data'/extracted && cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok && echo SYNC_COMPLETE"
-if errorlevel 1 (
-    echo.
-    echo    WARNING: gdown sync failed.
-    echo    The Google Drive folder may have per-file permission restrictions.
-    echo.
-    echo    To fix — ask the folder owner to set sharing to:
-    echo      Google Drive ^> Right-click folder ^> Share ^> Anyone with the link ^> Viewer
-    echo.
-    echo    Or manually upload archives to the cluster:
-    echo      scp -r "C:\path\to\archiveN" rpatel1@login-01.ncshare.org:~/bloomi/"New Data"/extracted/
-    echo.
-    echo    Continuing without dataset — training will fail if no images are present.
-    echo.
-    goto :after_sync
+%SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; mkdir -p ~/bloomi/'New Data'/extracted && cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok; exit 0"
+echo.
+
+:: Check if images actually landed — gdown exit code doesn't matter if images are there
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' \) 2>/dev/null | wc -l || echo 0"') do set POST_IMAGES=%%I
+if "%POST_IMAGES%"=="" set POST_IMAGES=0
+if %POST_IMAGES% GTR 0 (
+    echo    OK: %POST_IMAGES% images present on cluster after sync.
+) else (
+    echo    WARNING: No images found after sync.
+    echo    Some files in the Drive folder may have per-file permission restrictions.
+    echo    To upload manually: scp -r "C:\path\to\data" rpatel1@login-01.ncshare.org:~/bloomi/"New Data"/extracted/
 )
 echo.
 
