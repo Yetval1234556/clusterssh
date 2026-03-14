@@ -189,6 +189,9 @@ echo.
 %SSH% "export PATH=$HOME/.local/bin:$HOME/bin:$PATH; mkdir -p ~/bloomi/'New Data'; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite"
 echo.
 
+:: Remove nested extracted/extracted/ if it appeared
+%SSH% "[ -d ~/bloomi/'New Data'/extracted/extracted ] && rm -rfv ~/bloomi/'New Data'/extracted/extracted && echo '    Removed nested extracted/extracted/' || true"
+
 for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 6 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set FINAL_IMAGES=%%I
 if "%FINAL_IMAGES%"=="" set FINAL_IMAGES=0
 echo    Total images downloaded: %FINAL_IMAGES%

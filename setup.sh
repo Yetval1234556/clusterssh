@@ -161,6 +161,12 @@ else
         --prefix "extracted/" \
         --download-dir "$SCRATCH/New Data" \
         --overwrite
+    # Remove nested extracted/extracted/ if it appeared
+    if [ -d "$SCRATCH/New Data/extracted/extracted" ]; then
+        echo "  Removing nested extracted/extracted/ folder..."
+        rm -rf "$SCRATCH/New Data/extracted/extracted"
+        echo "  Removed."
+    fi
     FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
     echo "  Total images downloaded: $FINAL_COUNT"
 fi
