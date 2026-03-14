@@ -368,16 +368,19 @@ def train(args):
     train_ds = BloodCellDataset(train_samples, class_to_idx, augment=True)
     test_ds  = BloodCellDataset(test_samples,  class_to_idx, augment=False)
 
+    _mp_ctx = "fork" if args.workers > 0 else None
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True,
-        persistent_workers=(args.workers > 0),
+        persistent_workers=False,
+        multiprocessing_context=_mp_ctx,
         collate_fn=pad_collate, drop_last=True,
     )
     test_loader = DataLoader(
         test_ds, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True,
-        persistent_workers=(args.workers > 0),
+        persistent_workers=False,
+        multiprocessing_context=_mp_ctx,
         collate_fn=pad_collate,
     )
 
