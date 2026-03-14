@@ -12,9 +12,9 @@
 #SBATCH --nice=0
 
 # Usage:
-#   sbatch train_h200.sh       (4 GPUs default)
+#   sbatch train_h200.sh       (1 GPU default)
 #   sbatch train_h200.sh 2     (2 GPUs)
-#   sbatch train_h200.sh 1     (1 GPU)
+#   sbatch train_h200.sh 4     (4 GPUs — update --gres below first)
 
 set -e
 
@@ -249,7 +249,7 @@ if [ -f "$SCRATCH/training_metrics.csv" ]; then
     HEADER=$(head -1 "$SCRATCH/training_metrics.csv")
     METRICS_TABLE="$HEADER"$'\n'
     # Every 5th epoch (rows where epoch % 5 == 0), plus epoch 75 always
-    METRICS_TABLE+=$(awk -F',' 'NR>1 && ($1 % 5 == 0 || $1 == 75) {print}' "$SCRATCH/training_metrics.csv")
+    METRICS_TABLE+=$(awk -F',' 'NR>1 && ($1 % 5 == 0 || $1 == 100) {print}' "$SCRATCH/training_metrics.csv")
 else
     METRICS_TABLE="no training_metrics.csv found"
 fi
@@ -296,7 +296,7 @@ WHY THESE SETTINGS
 - DinoBloom-G frozen except last 4 blocks: preserves hematology-specific
   features learned during pretraining, only adapts top layers to our classes.
 - LR 1e-4: conservative rate suited for fine-tuning a large pretrained ViT.
-- 75 epochs: enough to converge without overfitting on our dataset size.
+- 100 epochs: enough to converge without overfitting on our dataset size.
 - Batch 256 effective: large batch stabilises DDP gradient averaging across GPUs.
 
 FILES IN THIS FOLDER
@@ -306,7 +306,7 @@ last.pth       : $LAST_SIZE  — final epoch checkpoint (use to resume training)
 run_info.txt   : this file
 backups/       : mid-training checkpoints saved every 30 min (crash recovery)
 
-METRICS — every 5 epochs (5, 10, 15 ... 75)
+METRICS — every 5 epochs (5, 10, 15 ... 100)
 --------------------------------------------
 $METRICS_TABLE
 
@@ -376,5 +376,5 @@ echo "  Models at: oci://$OCI_BUCKET/$OCI_PREFIX"
 echo ""
 echo "  Download best model:"
 echo "    oci os object get --namespace $OCI_NS --bucket-name $OCI_BUCKET \\"
-echo "      --name \"$OCI_PREFIX/best.pth\" --file ~/dinobloom_finetuned.pth"
+echo "      --name \"$OCI_PREFIX/best.pth\" --file ~/bloom_leukemia.pth"
 echo "========================================================"
