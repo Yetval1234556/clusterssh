@@ -164,7 +164,7 @@ class EpochReporter:
                                    self._best_val_acc*100, "green")))
         if rec["lr"] is not None:
             lr_str = f"{rec['lr']:.4e}"
-            print(c("cyan", _row(f"  {'Learning rate':<28}  {c('yellow', lr_str)}"))))
+            print(c("cyan", _row(f"  {'Learning rate':<28}  {c('yellow', lr_str)}")))
 
         # ── 3. LOSS TREND TABLE ────────────────────────────────────────────────
         if len(self.history) >= 2:
