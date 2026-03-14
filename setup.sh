@@ -151,8 +151,8 @@ mkdir -p "$SCRATCH/New Data"
 EXISTING=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
 echo "  Images already on cluster: $EXISTING"
 
-if [ "$EXISTING" -gt 0 ]; then
-    echo "  SKIP: Dataset already present ($EXISTING images) — not re-downloading."
+if [ -d "$SCRATCH/New Data/extracted/ALL_NEW" ]; then
+    echo "  SKIP: ALL_NEW already present — not re-downloading."
 else
     echo "  Pulling from Oracle (prefix: extracted/)..."
     oci os object bulk-download \

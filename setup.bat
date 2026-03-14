@@ -170,15 +170,17 @@ echo    Disk space on cluster:
 %SSH% "df -h ~ | tail -1 | awk '{printf \"    used=%%s  avail=%%s  (%%s full)\n\", $3, $4, $5}'"
 echo.
 
-:: Check if images already on cluster
+:: Check if ALL_NEW folder (primary dataset) is already on cluster
+for /f %%A in ('%SSH% "[ -d ~/bloomi/'New Data'/extracted/ALL_NEW ] && echo yes || echo no"') do set ALL_NEW_EXISTS=%%A
 for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 6 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set EXISTING_IMAGES=%%I
 if "%EXISTING_IMAGES%"=="" set EXISTING_IMAGES=0
 echo    Images already on cluster: %EXISTING_IMAGES%
+echo    ALL_NEW folder present: %ALL_NEW_EXISTS%
 echo.
 
-if %EXISTING_IMAGES% GTR 0 (
-    echo    SKIP: Dataset already present - not re-downloading.
-    echo    Delete ~/bloomi/'New Data'/extracted/ on cluster to force a re-sync.
+if "%ALL_NEW_EXISTS%"=="yes" (
+    echo    SKIP: ALL_NEW already on cluster - not re-downloading.
+    echo    Delete ~/bloomi/'New Data'/extracted/ALL_NEW to force a re-sync.
     echo.
     goto :skip_dataset
 )
