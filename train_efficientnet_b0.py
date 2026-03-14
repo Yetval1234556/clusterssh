@@ -622,13 +622,6 @@ def train(args):
     print(f"  Prefix: {OCI_RUN_PREFIX}")
     print(f"{'='*60}")
 
-    if out_path.exists():
-        try:
-            oracle_upload(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
-            print(f"  [oracle] best.pth uploaded.")
-        except Exception as e:
-            print(f"  [oracle] WARNING: final best upload failed — {e}")
-
     if ckpt_path.exists():
         try:
             oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{args.epochs:03d}.pth")
