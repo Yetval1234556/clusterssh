@@ -8,7 +8,7 @@ setlocal enabledelayedexpansion
 ::
 ::   Smart features:
 ::     - Pre-flight SSH test + disk space check before touching anything
-::     - Dataset synced from Google Drive folder (gdown --remaining-ok, skips existing)
+::     - Dataset pulled from Oracle Object Storage (extracted/ prefix, skips if present)
 ::     - Shows before/after archive inventory with sizes
 ::     - DinoBloom-G weights pulled from Oracle Object Storage (skips if already present)
 ::     - Skips every step already done on the cluster
@@ -19,8 +19,6 @@ setlocal enabledelayedexpansion
 set CLUSTER_HOST=login-01.ncshare.org
 set CLUSTER_USER=rpatel1
 set OCI_KEY=%~dp0yetvald@gmail.com-2026-03-13T02_52_21.874Z.pem
-set GDRIVE_ID=1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U
-set GDRIVE_URL=https://drive.google.com/drive/folders/1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U
 :: ──────────────────────────────────────────────────────────────────────────────
 
 set SCRIPTDIR=%~dp0
@@ -160,10 +158,10 @@ if "%DINOV2%"=="yes" (
 )
 echo.
 
-:: ── [4] Dataset: Pull from BOTH Oracle and Google Drive ──────────────────────
+:: ── [4] Dataset: Pull from Oracle ────────────────────────────────────────────
 echo  ┌───────────────────────────────────────────────────────────────────────┐
-echo  │  [4]   Dataset archives — pull from Oracle AND Google Drive           │
-echo  │        Both sources are combined into extracted/                      │
+echo  │  [4]   Dataset archives — pull from Oracle                            │
+echo  │        extracted/archive5,6,7 + extracted/ALL_NEW/ (12 folders)      │
 echo  └───────────────────────────────────────────────────────────────────────┘
 echo.
 
@@ -172,24 +170,17 @@ echo    Disk space on cluster:
 %SSH% "df -h ~ | tail -1 | awk '{printf \"    used=%%s  avail=%%s  (%%s full)\n\", $3, $4, $5}'"
 echo.
 
-:: ── [4a] Oracle ───────────────────────────────────────────────────────────────
-echo    [4a] Pulling from Oracle (prefix: extracted/)...
+:: Pull all data from Oracle extracted/ prefix
+echo    Pulling from Oracle (prefix: extracted/)...
 echo    Downloading - each file will print as it lands:
 echo.
 %SSH% "export PATH=$HOME/.local/bin:$HOME/bin:$PATH; mkdir -p ~/bloomi/'New Data'; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite"
 echo.
 
-:: ── [4b] Google Drive ─────────────────────────────────────────────────────────
-echo    [4b] Pulling from Google Drive (%GDRIVE_URL%)...
-echo    (restricted files like labels.zip will be skipped automatically)
-%SSH% "python3 -c 'import gdown' 2>/dev/null || (source ~/dinov2_venv/bin/activate 2>/dev/null && pip install -q gdown) || pip install -q --break-system-packages gdown"
-%SSH% "source ~/dinov2_venv/bin/activate 2>/dev/null; mkdir -p ~/bloomi/'New Data'/extracted && cd ~/bloomi/'New Data'/extracted && gdown --folder https://drive.google.com/drive/folders/%GDRIVE_ID% --remaining-ok; exit 0"
-echo.
-
 :: Final count
-for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 5 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set FINAL_IMAGES=%%I
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 6 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set FINAL_IMAGES=%%I
 if "%FINAL_IMAGES%"=="" set FINAL_IMAGES=0
-echo    Total images on cluster after sync: %FINAL_IMAGES%
+echo    Total images on cluster: %FINAL_IMAGES%
 echo.
 
 :: ── [5] Image Count + Train/Val Split ────────────────────────────────────────

@@ -144,31 +144,19 @@ else
     echo "  Make sure setup.bat completed successfully before running the training job."
 fi
 
-# 3. Pull dataset from BOTH Oracle and Google Drive
-echo "[3/5] Syncing dataset from Oracle + Google Drive..."
-mkdir -p "$SCRATCH/New Data/extracted"
+# 3. Pull dataset from Oracle (extracted/: archive5, archive6, archive7, ALL_NEW/)
+echo "[3/5] Pulling dataset from Oracle..."
+mkdir -p "$SCRATCH/New Data"
 
-# 3a. Oracle bulk-download (archive5/6/7 etc.)
-echo "  [3a] Pulling from Oracle (prefix: extracted/)..."
 oci os object bulk-download \
     --namespace "$ORACLE_NAMESPACE" \
     --bucket-name "$ORACLE_BUCKET" \
     --prefix "extracted/" \
     --download-dir "$SCRATCH/New Data" \
     --overwrite
-echo ""
-
-# 3b. Google Drive folder
-echo "  [3b] Pulling from Google Drive..."
-GDRIVE_FOLDER_ID="1J5ld-tK6cewj9wXWUi3rs6UdlHnDBe8U"
-pip install -q gdown 2>/dev/null || true
-source "$HOME/dinov2_venv/bin/activate" 2>/dev/null || true
-cd "$SCRATCH/New Data/extracted"
-gdown --folder "https://drive.google.com/drive/folders/$GDRIVE_FOLDER_ID" --remaining-ok || true
-echo ""
 
 FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
-echo "  Total images after sync: $FINAL_COUNT"
+echo "  Total images: $FINAL_COUNT"
 
 # 4. Download DinoBloom-G pretrained weights (from Oracle Object Storage)
 DINOBLOOM_ORACLE_PATH="trained-models/dinobloom/DinoBloom-GDinoBloom-G.pth"
