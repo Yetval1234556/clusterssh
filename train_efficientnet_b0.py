@@ -86,7 +86,7 @@ def _oci_bin():
     return "oci"  # last resort — let it fail with a clear error
 
 def oracle_upload(local_path: str, object_name: str):
-    """Upload a file to Oracle Object Storage."""
+    """Upload a file to Oracle Object Storage with parallel multipart upload."""
     env = os.environ.copy()
     env["PATH"] = os.path.expanduser("~/.local/bin") + ":" + env.get("PATH", "")
     result = subprocess.run([
@@ -95,11 +95,26 @@ def oracle_upload(local_path: str, object_name: str):
         "--bucket-name", OCI_BUCKET,
         "--name", object_name,
         "--file", local_path,
-        "--force"
+        "--force",
+        "--parallel-upload-count", "8",   # 8 parallel threads
+        "--part-size", "128",              # 128MB parts
     ], env=env, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"oci put failed: {result.stderr.strip()}")
     print(f"  [oracle] uploaded → {OCI_BUCKET}/{object_name}")
+
+def oracle_upload_bg(local_path: str, object_name: str):
+    """Fire-and-forget background upload — training continues immediately."""
+    import threading
+    def _run():
+        try:
+            oracle_upload(local_path, object_name)
+        except Exception as e:
+            print(f"  [oracle-bg] WARNING: {object_name} upload failed — {e}", flush=True)
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    print(f"  [oracle-bg] uploading in background → {object_name}", flush=True)
+    return t
 
 def oracle_delete(object_name: str):
     """Delete an object from Oracle Object Storage."""
@@ -559,23 +574,24 @@ def train(args):
         }
         torch.save(ckpt_data, str(ckpt_path))
 
-        # Upload per-epoch backup to Oracle then delete local copy — no disk buildup
+        # Upload per-epoch backup to Oracle in background — no disk buildup
         backup_path = backup_dir / f"checkpoint_epoch_{epoch:03d}.pth"
         torch.save(ckpt_data, str(backup_path))
-        try:
-            oracle_upload(str(backup_path), f"{OCI_RUN_PREFIX}/backups/checkpoint_epoch_{epoch:03d}.pth")
-            backup_path.unlink()  # delete local copy after successful upload
-            print(f"  [backup] epoch {epoch:03d} → Oracle, local copy removed")
-        except Exception as e:
-            print(f"  [backup] WARNING: epoch backup upload failed — keeping local — {e}")
+        _bp = str(backup_path)
+        _bobj = f"{OCI_RUN_PREFIX}/backups/checkpoint_epoch_{epoch:03d}.pth"
+        def _upload_backup(p=_bp, obj=_bobj, lp=backup_path):
+            try:
+                oracle_upload(p, obj)
+                lp.unlink(missing_ok=True)
+                print(f"  [backup] {lp.name} → Oracle done, local removed", flush=True)
+            except Exception as e:
+                print(f"  [backup] WARNING: {lp.name} upload failed — {e}", flush=True)
+        import threading as _threading
+        _threading.Thread(target=_upload_backup, daemon=True).start()
 
-        # Upload last checkpoint to Oracle (overwrites previous last every epoch)
-        try:
-            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{epoch:03d}.pth")
-            # Also overwrite the generic last.pth so there's always a known name
-            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
-        except Exception as e:
-            print(f"  [oracle] WARNING: last upload failed — {e}")
+        # Upload last checkpoint to Oracle in background
+        oracle_upload_bg(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{epoch:03d}.pth")
+        oracle_upload_bg(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
 
         # Save best model whenever test accuracy improves
         if test_acc > best_val_acc:
@@ -595,13 +611,9 @@ def train(args):
             )
             print(f"  *** New best model — epoch {epoch} — test_acc={test_acc:.2f}% — uploading to Oracle ***")
             new_oracle_model = f"{OCI_RUN_PREFIX}/best_epoch{epoch:03d}_{test_acc:.2f}pct.pth"
-            try:
-                oracle_upload(str(out_path), new_oracle_model)
-                # Also overwrite generic best.pth
-                oracle_upload(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
-                best_oracle_model = new_oracle_model
-            except Exception as e:
-                print(f"  [oracle] WARNING: best upload failed — {e}")
+            best_oracle_model = new_oracle_model
+            oracle_upload_bg(str(out_path), new_oracle_model)
+            oracle_upload_bg(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
 
     # ── Final uploads to Oracle ───────────────────────────────────────────────
     print(f"\n{'='*60}")
