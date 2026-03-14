@@ -330,7 +330,8 @@ class EpochReporter:
 
         print(c("cyan", _row(f"  {'NaN weights':<32}  {c('red','FOUND: '+str(nan_l)) if nan_l else c('green','None ✓')}")))
         print(c("cyan", _row(f"  {'Inf weights':<32}  {c('red','FOUND: '+str(inf_l)) if inf_l else c('green','None ✓')}")))
-        print(c("cyan", _row(f"  {'Dead layers (>50% near-zero)':<32}  {c('yellow',str(len(dead_l))+\" layers\") if dead_l else c('green','None ✓')}")))
+        dead_str = c("yellow", str(len(dead_l)) + " layers") if dead_l else c("green", "None ✓")
+        print(c("cyan", _row(f"  {'Dead layers (>50% near-zero)':<32}  {dead_str}")))
         for n, pct in dead_l:
             print(c("cyan", _row(c("yellow", f"    → {n}  ({pct:.1f}% near-zero)"))))
 
