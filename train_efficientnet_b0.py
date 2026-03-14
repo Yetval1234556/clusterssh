@@ -437,10 +437,8 @@ def train(args):
     # ── Auto-tune batch size ───────────────────────────────────────────────
     args.batch_size = find_max_batch_size(model, device, amp_dtype, num_classes)
 
-    # ── torch.compile (PyTorch 2.0+ — 20-40% faster after first epoch) ───
-    if hasattr(torch, "compile"):
-        print("Compiling model with torch.compile (first epoch slower — one-time cost)...", flush=True)
-        model = torch.compile(model)
+    # ── torch.compile disabled: Triton/inductor requires Python.h dev headers ───
+    # model = torch.compile(model)
 
     # ── DataLoaders (created after batch size is known) ───────────────────
     _mp_ctx = "fork" if args.workers > 0 else None
