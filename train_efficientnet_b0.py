@@ -571,6 +571,8 @@ def train(args):
 
         # Upload last checkpoint to Oracle (overwrites previous last every epoch)
         try:
+            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{epoch:03d}.pth")
+            # Also overwrite the generic last.pth so there's always a known name
             oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
         except Exception as e:
             print(f"  [oracle] WARNING: last upload failed — {e}")
@@ -591,10 +593,12 @@ def train(args):
                 },
                 str(out_path),
             )
-            print(f"  *** New best model — test_acc={test_acc:.2f}% — uploading to Oracle ***")
-            new_oracle_model = f"{OCI_RUN_PREFIX}/best.pth"
+            print(f"  *** New best model — epoch {epoch} — test_acc={test_acc:.2f}% — uploading to Oracle ***")
+            new_oracle_model = f"{OCI_RUN_PREFIX}/best_epoch{epoch:03d}_{test_acc:.2f}pct.pth"
             try:
                 oracle_upload(str(out_path), new_oracle_model)
+                # Also overwrite generic best.pth
+                oracle_upload(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
                 best_oracle_model = new_oracle_model
             except Exception as e:
                 print(f"  [oracle] WARNING: best upload failed — {e}")
@@ -615,8 +619,9 @@ def train(args):
 
     if ckpt_path.exists():
         try:
+            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{args.epochs:03d}.pth")
             oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
-            print(f"  [oracle] last.pth uploaded.")
+            print(f"  [oracle] last_epoch{args.epochs:03d}.pth uploaded.")
         except Exception as e:
             print(f"  [oracle] WARNING: final last upload failed — {e}")
 
