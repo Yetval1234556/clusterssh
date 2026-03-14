@@ -126,6 +126,41 @@ def oracle_delete(object_name: str):
         "--force"
     ], check=True)
     print(f"  [oracle] deleted  → {OCI_BUCKET}/{object_name}")
+
+
+def find_max_batch_size(model, device, amp_dtype, num_classes, start=32, max_batch=512):
+    """Probe VRAM with a dummy forward+backward to find the largest safe batch size."""
+    import gc
+    ce = nn.CrossEntropyLoss()
+    model.train()
+    best = start
+    batch = start
+    print(f"\n  [batch-tuner] Probing VRAM  start={start}  cap={max_batch}", flush=True)
+    while batch <= max_batch:
+        try:
+            torch.cuda.empty_cache(); gc.collect()
+            x = torch.zeros(batch, 3, 224, 224, device=device)
+            y = torch.zeros(batch, dtype=torch.long, device=device)
+            with torch.amp.autocast("cuda", dtype=amp_dtype):
+                out = model(x)
+                loss = ce(out, y)
+            loss.backward()
+            model.zero_grad(set_to_none=True)
+            del x, y, out, loss
+            torch.cuda.empty_cache(); gc.collect()
+            best = batch
+            print(f"  [batch-tuner]   {batch:>4} ✓", flush=True)
+            batch = batch * 2
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache(); gc.collect()
+            print(f"  [batch-tuner]   {batch:>4} OOM → stop", flush=True)
+            break
+    # 80% of max, aligned to multiple of 8 for tensor-core efficiency
+    safe = max(8, (int(best * 0.80) // 8) * 8)
+    print(f"  [batch-tuner] Max={best}  Safe(80%)={safe}\n", flush=True)
+    return safe
+
+
 VALID_EXTS    = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD  = [0.229, 0.224, 0.225]
@@ -328,6 +363,11 @@ def train(args):
         print(f"GPU    : {torch.cuda.get_device_name(0)}")
         print(f"VRAM   : {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
 
+    # bf16 is natively faster on H200/A100 and needs no gradient scaler
+    _bf16_ok  = device.type == "cuda" and torch.cuda.is_bf16_supported()
+    amp_dtype = torch.bfloat16 if _bf16_ok else torch.float16
+    print(f"AMP    : {'bfloat16 (native, no scaler needed)' if _bf16_ok else 'float16 + GradScaler'}")
+
     # ── Data ──────────────────────────────────────────────────────────────
     # archive5: use pre-defined 80/20 split from train.txt / val.txt
     txt_train_samples = load_txt_samples(REPO_ROOT / "New Data" / "train.txt")
@@ -383,6 +423,26 @@ def train(args):
     train_ds = BloodCellDataset(train_samples, class_to_idx, augment=True)
     test_ds  = BloodCellDataset(test_samples,  class_to_idx, augment=False)
 
+    # ── Model (loaded before DataLoaders so we can auto-tune batch size) ──
+    print(f"Loading DinoBloom-G  (unfreezing last {args.unfreeze_blocks} blocks)...")
+    backbone = load_dinobloom_backbone(str(REPO_ROOT / "DinoBloom-G.pth"), device)
+    model    = DinoBloomClassifier(backbone, num_classes,
+                                   unfreeze_blocks=args.unfreeze_blocks).to(device)
+
+    total_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"[head]  trainable params in head: "
+          f"{sum(p.numel() for p in model.head.parameters())/1e6:.1f}M")
+    print(f"Total trainable: {total_trainable/1e6:.1f}M\n")
+
+    # ── Auto-tune batch size ───────────────────────────────────────────────
+    args.batch_size = find_max_batch_size(model, device, amp_dtype, num_classes)
+
+    # ── torch.compile (PyTorch 2.0+ — 20-40% faster after first epoch) ───
+    if hasattr(torch, "compile"):
+        print("Compiling model with torch.compile (first epoch slower — one-time cost)...", flush=True)
+        model = torch.compile(model)
+
+    # ── DataLoaders (created after batch size is known) ───────────────────
     _mp_ctx = "fork" if args.workers > 0 else None
     train_loader = DataLoader(
         train_ds, batch_size=args.batch_size, shuffle=True,
@@ -398,17 +458,7 @@ def train(args):
         multiprocessing_context=_mp_ctx,
         collate_fn=pad_collate,
     )
-
-    # ── Model ─────────────────────────────────────────────────────────────
-    print(f"Loading DinoBloom-G  (unfreezing last {args.unfreeze_blocks} blocks)...")
-    backbone = load_dinobloom_backbone(str(REPO_ROOT / "DinoBloom-G.pth"), device)
-    model    = DinoBloomClassifier(backbone, num_classes,
-                                   unfreeze_blocks=args.unfreeze_blocks).to(device)
-
-    total_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"[head]  trainable params in head: "
-          f"{sum(p.numel() for p in model.head.parameters())/1e6:.1f}M")
-    print(f"Total trainable: {total_trainable/1e6:.1f}M\n")
+    print(f"DataLoaders ready — batch={args.batch_size}  workers={args.workers}\n", flush=True)
 
     # ── Optimiser — lower LR for backbone, higher for head ────────────────
     backbone_params = [p for p in model.backbone.parameters() if p.requires_grad]
@@ -422,7 +472,7 @@ def train(args):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=args.epochs, eta_min=1e-6
     )
-    scaler = torch.amp.GradScaler("cuda")
+    scaler = None if amp_dtype == torch.bfloat16 else torch.amp.GradScaler("cuda")
     ce_fn  = nn.CrossEntropyLoss(label_smoothing=0.1)
 
     best_val_acc      = 0.0
@@ -446,7 +496,8 @@ def train(args):
         model.load_state_dict(ckpt["model_state_dict"])
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
         scheduler.load_state_dict(ckpt["scheduler_state_dict"])
-        scaler.load_state_dict(ckpt["scaler_state_dict"])
+        if scaler is not None and ckpt.get("scaler_state_dict") is not None:
+            scaler.load_state_dict(ckpt["scaler_state_dict"])
         start_epoch  = ckpt["epoch"] + 1
         best_val_acc = ckpt.get("best_val_acc", ckpt.get("best_train_acc", 0.0))
         print(f"[resume] Resuming from epoch {start_epoch}  (best val: {best_val_acc:.1f}%)\n")
@@ -465,15 +516,20 @@ def train(args):
             imgs, labels = imgs.to(device), labels.to(device)
             optimizer.zero_grad(set_to_none=True)
 
-            with torch.amp.autocast("cuda"):
+            with torch.amp.autocast("cuda", dtype=amp_dtype):
                 logits = model(imgs)
                 loss   = ce_fn(logits, labels)
 
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            scaler.step(optimizer)
-            scaler.update()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
 
             run_loss += loss.item()
             correct  += (logits.argmax(1) == labels).sum().item()
@@ -493,7 +549,7 @@ def train(args):
         with torch.no_grad():
             for imgs, labels in test_loader:
                 imgs, labels = imgs.to(device), labels.to(device)
-                with torch.amp.autocast("cuda"):
+                with torch.amp.autocast("cuda", dtype=amp_dtype):
                     logits = model(imgs)
                 preds = logits.argmax(1)
                 test_correct += (preds == labels).sum().item()
@@ -568,7 +624,7 @@ def train(args):
             "model_state_dict"    : model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
             "scheduler_state_dict": scheduler.state_dict(),
-            "scaler_state_dict"   : scaler.state_dict(),
+            "scaler_state_dict"   : scaler.state_dict() if scaler is not None else None,
             "num_classes"         : num_classes,
             "class_to_idx"        : class_to_idx,
         }

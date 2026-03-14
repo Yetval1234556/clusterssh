@@ -61,15 +61,15 @@ echo ""
 # Batch capped at 64 — ViT-G is large; going higher risks OOM or unstable training
 # Workers capped at 8 — single GPU is the bottleneck, not data loading
 if   [ "$TOTAL_IMAGES" -lt 5000 ]; then
-    TIER="Small";        BATCH=16; UNFREEZE=2; WORKERS=4
+    TIER="Small";        BATCH=16; UNFREEZE=2; WORKERS=8
 elif [ "$TOTAL_IMAGES" -lt 25000 ]; then
-    TIER="Medium-Small"; BATCH=32; UNFREEZE=3; WORKERS=6
+    TIER="Medium-Small"; BATCH=32; UNFREEZE=3; WORKERS=16
 elif [ "$TOTAL_IMAGES" -lt 75000 ]; then
-    TIER="Medium";       BATCH=48; UNFREEZE=4; WORKERS=8
+    TIER="Medium";       BATCH=48; UNFREEZE=4; WORKERS=16
 elif [ "$TOTAL_IMAGES" -lt 200000 ]; then
-    TIER="Large";        BATCH=64; UNFREEZE=4; WORKERS=8
+    TIER="Large";        BATCH=64; UNFREEZE=4; WORKERS=16
 else
-    TIER="Very Large";   BATCH=64; UNFREEZE=4; WORKERS=8
+    TIER="Very Large";   BATCH=64; UNFREEZE=4; WORKERS=16
 fi
 
 # Epochs fixed at 75
