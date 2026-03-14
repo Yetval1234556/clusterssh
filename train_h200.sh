@@ -72,8 +72,8 @@ else
     TIER="Very Large";   BATCH=64; UNFREEZE=4; WORKERS=8
 fi
 
-# Epochs fixed at 100
-EPOCHS=100
+# Epochs fixed at 75
+EPOCHS=75
 EFFECTIVE_BATCH=$BATCH
 
 echo "  ┌─────────────────────────────────────────────────────────────────────┐"
@@ -243,7 +243,7 @@ if [ -f "$SCRATCH/training_metrics.csv" ]; then
     HEADER=$(head -1 "$SCRATCH/training_metrics.csv")
     METRICS_TABLE="$HEADER"$'\n'
     # Every 5th epoch (rows where epoch % 5 == 0), plus epoch 75 always
-    METRICS_TABLE+=$(awk -F',' 'NR>1 && ($1 % 5 == 0 || $1 == 100) {print}' "$SCRATCH/training_metrics.csv")
+    METRICS_TABLE+=$(awk -F',' 'NR>1 && ($1 % 5 == 0 || $1 == 75) {print}' "$SCRATCH/training_metrics.csv")
 else
     METRICS_TABLE="no training_metrics.csv found"
 fi
@@ -290,7 +290,7 @@ WHY THESE SETTINGS
 - DinoBloom-G frozen except last 4 blocks: preserves hematology-specific
   features learned during pretraining, only adapts top layers to our classes.
 - LR 1e-4: conservative rate suited for fine-tuning a large pretrained ViT.
-- 100 epochs: enough to converge without overfitting on our dataset size.
+- 75 epochs: enough to converge without overfitting on our dataset size.
 - Batch 256 effective: large batch stabilises DDP gradient averaging across GPUs.
 
 FILES IN THIS FOLDER
@@ -300,7 +300,7 @@ last.pth       : $LAST_SIZE  — final epoch checkpoint (use to resume training)
 run_info.txt   : this file
 backups/       : mid-training checkpoints saved every 30 min (crash recovery)
 
-METRICS — every 5 epochs (5, 10, 15 ... 100)
+METRICS — every 5 epochs (5, 10, 15 ... 75)
 --------------------------------------------
 $METRICS_TABLE
 
