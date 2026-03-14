@@ -56,31 +56,24 @@ echo "  Images in val.txt            : $TXT_VAL"
 echo "  Total dataset size used      : $TOTAL_IMAGES"
 echo ""
 
-# ── Tier selection ─────────────────────────────────────────────────────────────
+# ── Tier selection (tuned for 1x H200 96GB, ViT-Giant backbone) ───────────────
+# Batch capped at 64 — ViT-G is large; going higher risks OOM or unstable training
+# Workers capped at 8 — single GPU is the bottleneck, not data loading
 if   [ "$TOTAL_IMAGES" -lt 5000 ]; then
-    TIER="Small"; EPOCHS=150; BATCH=32; UNFREEZE=2; BASE_WORKERS=8
+    TIER="Small";        BATCH=16; UNFREEZE=2; WORKERS=4
 elif [ "$TOTAL_IMAGES" -lt 25000 ]; then
-    TIER="Medium-Small"; EPOCHS=100; BATCH=48; UNFREEZE=3; BASE_WORKERS=12
+    TIER="Medium-Small"; BATCH=32; UNFREEZE=3; WORKERS=6
 elif [ "$TOTAL_IMAGES" -lt 75000 ]; then
-    TIER="Medium"; EPOCHS=75; BATCH=64; UNFREEZE=4; BASE_WORKERS=16
+    TIER="Medium";       BATCH=48; UNFREEZE=4; WORKERS=8
 elif [ "$TOTAL_IMAGES" -lt 200000 ]; then
-    TIER="Large"; EPOCHS=50; BATCH=96; UNFREEZE=5; BASE_WORKERS=16
+    TIER="Large";        BATCH=64; UNFREEZE=4; WORKERS=8
 else
-    TIER="Very Large"; EPOCHS=30; BATCH=128; UNFREEZE=4; BASE_WORKERS=16
+    TIER="Very Large";   BATCH=64; UNFREEZE=4; WORKERS=8
 fi
 
-# Epochs fixed at 100 regardless of dataset size
+# Epochs fixed at 100
 EPOCHS=100
-
-# Multi-GPU: scale batch + workers only (epochs stay at 100)
-EFFECTIVE_BATCH=$((BATCH * NGPUS))
-
-# Workers: scale with GPUs, cap at available CPUs - 4
-AVAIL_CPUS=$(nproc 2>/dev/null || echo 56)
-WORKERS=$((BASE_WORKERS * NGPUS))
-MAX_WORKERS=$(( AVAIL_CPUS - 4 ))
-[ "$WORKERS" -gt "$MAX_WORKERS" ] && WORKERS=$MAX_WORKERS
-[ "$WORKERS" -lt 4 ] && WORKERS=4
+EFFECTIVE_BATCH=$BATCH
 
 echo "  ┌─────────────────────────────────────────────────────────────────────┐"
 echo "  │  ADAPTIVE HYPERPARAMETERS                                           │"
@@ -88,8 +81,8 @@ echo "  ├───────────────────────
 echo "  │  Dataset tier    : $TIER"
 printf "  │  Total images    : %'d\n" $TOTAL_IMAGES
 echo "  │  Epochs          : $EPOCHS"
-echo "  │  Batch / GPU     : $BATCH    →  Effective batch: $EFFECTIVE_BATCH  (${NGPUS}x GPU)"
-echo "  │  Workers         : $WORKERS  (of $AVAIL_CPUS CPUs available)"
+echo "  │  Batch size      : $BATCH  (capped for ViT-G on 1x H200 96GB)"
+echo "  │  Workers         : $WORKERS  (single GPU — data loading is not the bottleneck)"
 echo "  │  Unfreeze blocks : $UNFREEZE  of 40 DinoBloom-G transformer blocks"
 echo "  │  LR head/backbone: 1e-4 / 1e-5"
 echo "  └─────────────────────────────────────────────────────────────────────┘"
