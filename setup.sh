@@ -145,18 +145,25 @@ else
 fi
 
 # 3. Pull dataset from Oracle (extracted/: archive5, archive6, archive7, ALL_NEW/)
-echo "[3/5] Pulling dataset from Oracle..."
+echo "[3/5] Checking dataset..."
 mkdir -p "$SCRATCH/New Data"
 
-oci os object bulk-download \
-    --namespace "$ORACLE_NAMESPACE" \
-    --bucket-name "$ORACLE_BUCKET" \
-    --prefix "extracted/" \
-    --download-dir "$SCRATCH/New Data" \
-    --overwrite
+EXISTING=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
+echo "  Images already on cluster: $EXISTING"
 
-FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
-echo "  Total images: $FINAL_COUNT"
+if [ "$EXISTING" -gt 0 ]; then
+    echo "  SKIP: Dataset already present ($EXISTING images) — not re-downloading."
+else
+    echo "  Pulling from Oracle (prefix: extracted/)..."
+    oci os object bulk-download \
+        --namespace "$ORACLE_NAMESPACE" \
+        --bucket-name "$ORACLE_BUCKET" \
+        --prefix "extracted/" \
+        --download-dir "$SCRATCH/New Data" \
+        --overwrite
+    FINAL_COUNT=$(find "$SCRATCH/New Data/extracted" \( -name "*.jpg" -o -name "*.bmp" -o -name "*.png" -o -name "*.tif" -o -name "*.tiff" \) 2>/dev/null | wc -l)
+    echo "  Total images downloaded: $FINAL_COUNT"
+fi
 
 # 4. Download DinoBloom-G pretrained weights (from Oracle Object Storage)
 DINOBLOOM_ORACLE_PATH="trained-models/dinobloom/DinoBloom-GDinoBloom-G.pth"

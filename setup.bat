@@ -170,18 +170,31 @@ echo    Disk space on cluster:
 %SSH% "df -h ~ | tail -1 | awk '{printf \"    used=%%s  avail=%%s  (%%s full)\n\", $3, $4, $5}'"
 echo.
 
-:: Pull all data from Oracle extracted/ prefix
+:: Check if images already on cluster
+for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 6 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set EXISTING_IMAGES=%%I
+if "%EXISTING_IMAGES%"=="" set EXISTING_IMAGES=0
+echo    Images already on cluster: %EXISTING_IMAGES%
+echo.
+
+if %EXISTING_IMAGES% GTR 0 (
+    echo    SKIP: Dataset already present - not re-downloading.
+    echo    Delete ~/bloomi/'New Data'/extracted/ on cluster to force a re-sync.
+    echo.
+    goto :skip_dataset
+)
+
 echo    Pulling from Oracle (prefix: extracted/)...
 echo    Downloading - each file will print as it lands:
 echo.
 %SSH% "export PATH=$HOME/.local/bin:$HOME/bin:$PATH; mkdir -p ~/bloomi/'New Data'; oci os object bulk-download --namespace idcsxwupyymi --bucket-name bloomi-training-data --prefix extracted/ --download-dir ~/bloomi/'New Data' --overwrite"
 echo.
 
-:: Final count
 for /f %%I in ('%SSH% "find ~/bloomi/'New Data'/extracted/ -maxdepth 6 \( -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.bmp' -o -name '*.tif' -o -name '*.tiff' \) 2>/dev/null | wc -l || echo 0"') do set FINAL_IMAGES=%%I
 if "%FINAL_IMAGES%"=="" set FINAL_IMAGES=0
-echo    Total images on cluster: %FINAL_IMAGES%
+echo    Total images downloaded: %FINAL_IMAGES%
 echo.
+
+:skip_dataset
 
 :: ── [5] Image Count + Train/Val Split ────────────────────────────────────────
 echo  ┌───────────────────────────────────────────────────────────────────────┐
