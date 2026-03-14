@@ -43,15 +43,33 @@ if _slurm_job:
 else:
     OCI_RUN_PREFIX = f"trained-models/oracle-a100/{_run_date}"
 
+def _oci_bin():
+    import shutil, os
+    oci = shutil.which("oci")
+    if oci:
+        return oci
+    for p in [
+        os.path.expanduser("~/.local/bin/oci"),
+        os.path.expanduser("~/bin/oci"),
+        "/usr/local/bin/oci",
+    ]:
+        if os.path.isfile(p):
+            return p
+    return "oci"
+
 def oracle_upload(local_path: str, object_name: str):
-    subprocess.run([
-        "oci", "os", "object", "put",
+    env = os.environ.copy()
+    env["PATH"] = os.path.expanduser("~/.local/bin") + ":" + env.get("PATH", "")
+    result = subprocess.run([
+        _oci_bin(), "os", "object", "put",
         "--namespace", OCI_NAMESPACE,
         "--bucket-name", OCI_BUCKET,
         "--name", object_name,
         "--file", local_path,
         "--force"
-    ], check=True)
+    ], env=env, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"oci put failed: {result.stderr.strip()}")
     print(f"  [oracle] uploaded → {OCI_BUCKET}/{object_name}")
 
 def oracle_delete(object_name: str):
