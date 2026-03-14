@@ -489,51 +489,25 @@ def train(args):
 
         test_acc = test_correct / test_total * 100
 
-        # ── Beautiful per-epoch console output ────────────────────────────
+        # ── Compact per-epoch line ─────────────────────────────────────────
         idx_to_class  = {v: k for k, v in class_to_idx.items()}
         cur_lr        = scheduler.get_last_lr()[0]
         epoch_time    = _time.time() - reporter._epoch_start if reporter._epoch_start else 0
-        pct_done      = 100.0 * epoch / args.epochs
-        prog_bar      = _bar(epoch, args.epochs, width=35)
-
-        print(f"\n{_c('bold','╔' + '═'*68 + '╗')}")
-        print(f"{_c('bold','║')}  {_c('cyan', f'BLOOM  Epoch {epoch:>3d} / {args.epochs}')}"
-              f"   {_c('grey', f'{pct_done:.1f}% done')}   "
-              f"{_c('grey', f'{epoch_time:.0f}s this epoch')}"
-              f"  {_c('bold','║')}")
-        print(f"{_c('bold','║')}  [{_c('green', prog_bar)}]  {_c('bold','║')}")
-        print(f"{_c('bold','╠' + '═'*68 + '╣')}")
-
-        # Core metrics
-        ta_col = _acc_color(train_acc)
-        va_col = _acc_color(test_acc)
-        print(f"{_c('bold','║')}  {'Loss':<14} {_c('yellow', f'{train_loss:.6f}')}"
-              f"{'':>20}"
-              f"  LR: {_c('grey', f'{cur_lr:.2e}')}{'':>4}{_c('bold','║')}")
-        print(f"{_c('bold','║')}  {'Train Acc':<14} {_c(ta_col, f'{train_acc:>7.3f}%')}"
-              f"   {_c('grey', _bar(train_acc, 100, width=30))}"
-              f"  {_c('bold','║')}")
-        print(f"{_c('bold','║')}  {'Val   Acc':<14} {_c(va_col, f'{test_acc:>7.3f}%')}"
-              f"   {_c('grey', _bar(test_acc, 100, width=30))}"
-              f"  {_c('bold','║')}")
-        print(f"{_c('bold','║')}  {'Best Val':<14} {_c('green', f'{best_val_acc:>7.3f}%')}"
-              f"{'':>48}{_c('bold','║')}")
-
-        # Per-class breakdown
-        print(f"{_c('bold','╠' + '═'*68 + '╣')}")
-        print(f"{_c('bold','║')}  {'Class':<22} {'Val Acc':>8}  {'Bar':<32}  {'n':>5}  {_c('bold','║')}")
-        print(f"{_c('bold','║')}  {'─'*22}  {'─'*7}  {'─'*32}  {'─'*5}  {_c('bold','║')}")
-        for i in range(num_classes):
-            if class_total[i] > 0:
-                cacc = class_correct[i] / class_total[i] * 100
-                bar  = _bar(cacc, 100, width=30)
-                col  = _acc_color(cacc)
-                print(f"{_c('bold','║')}  {idx_to_class[i]:<22} "
-                      f"{_c(col, f'{cacc:>7.2f}%')}  "
-                      f"{_c('grey', bar)}  "
-                      f"{class_total[i]:>5}  {_c('bold','║')}")
-
-        print(f"{_c('bold','╚' + '═'*68 + '╝')}\n")
+        ta_col        = _acc_color(train_acc)
+        va_col        = _acc_color(test_acc)
+        elapsed_total = epoch_time * epoch
+        eta_secs      = epoch_time * (args.epochs - epoch)
+        eta_str       = f"{int(eta_secs//3600):02d}h{int((eta_secs%3600)//60):02d}m"
+        print(
+            f"Ep {epoch:>3}/{args.epochs}"
+            f"  loss {_c('yellow', f'{train_loss:.4f}')}"
+            f"  tr {_c(ta_col, f'{train_acc:.2f}%')}"
+            f"  val {_c(va_col, f'{test_acc:.2f}%')}"
+            f"  best {_c('green', f'{best_val_acc:.2f}%')}"
+            f"  lr {_c('grey', f'{cur_lr:.1e}')}"
+            f"  {epoch_time:.0f}s  ETA {_c('grey', eta_str)}",
+            flush=True
+        )
 
         # ── Verbose epoch report every N epochs ───────────────────────────
         per_class_accs = {
@@ -625,8 +599,36 @@ def train(args):
             except Exception as e:
                 print(f"  [oracle] WARNING: best upload failed — {e}")
 
-    print(f"\nDone.  Best test acc: {best_val_acc:.2f}%")
-    print(f"Model: {out_path}")
+    # ── Final uploads to Oracle ───────────────────────────────────────────────
+    print(f"\n{'='*60}")
+    print(f"  Training complete.  Best val acc: {best_val_acc:.2f}%")
+    print(f"  Uploading final models to Oracle...")
+    print(f"  Prefix: {OCI_RUN_PREFIX}")
+    print(f"{'='*60}")
+
+    if out_path.exists():
+        try:
+            oracle_upload(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
+            print(f"  [oracle] best.pth uploaded.")
+        except Exception as e:
+            print(f"  [oracle] WARNING: final best upload failed — {e}")
+
+    if ckpt_path.exists():
+        try:
+            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
+            print(f"  [oracle] last.pth uploaded.")
+        except Exception as e:
+            print(f"  [oracle] WARNING: final last upload failed — {e}")
+
+    if metrics_path.exists():
+        try:
+            oracle_upload(str(metrics_path), f"{OCI_RUN_PREFIX}/training_metrics.csv")
+            print(f"  [oracle] training_metrics.csv uploaded.")
+        except Exception as e:
+            print(f"  [oracle] WARNING: metrics upload failed — {e}")
+
+    print(f"\n  All done. Models at: oci://{OCI_BUCKET}/{OCI_RUN_PREFIX}/")
+    print(f"  best.pth  = highest val acc checkpoint")
 
 
 # ---------------------------------------------------------------------------

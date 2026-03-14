@@ -27,6 +27,7 @@ OCI_BUCKET="bloomi-training-data"
 # ── Environment ───────────────────────────────────────────────────────────────
 source $HOME/.bashrc
 source "$HOME/dinov2_venv/bin/activate"
+export PYTHONUNBUFFERED=1   # flush all print() immediately to the log
 
 SCRATCH=/hpc/home/$USER/bloomi
 cd $SCRATCH
