@@ -630,24 +630,25 @@ def train(args):
         }
         torch.save(ckpt_data, str(ckpt_path))
 
-        # Upload per-epoch backup to Oracle in background — no disk buildup
-        backup_path = backup_dir / f"checkpoint_epoch_{epoch:03d}.pth"
-        torch.save(ckpt_data, str(backup_path))
-        _bp = str(backup_path)
-        _bobj = f"{OCI_RUN_PREFIX}/backups/checkpoint_epoch_{epoch:03d}.pth"
-        def _upload_backup(p=_bp, obj=_bobj, lp=backup_path):
-            try:
-                oracle_upload(p, obj)
-                lp.unlink(missing_ok=True)
-                print(f"  [backup] {lp.name} → Oracle done, local removed", flush=True)
-            except Exception as e:
-                print(f"  [backup] WARNING: {lp.name} upload failed — {e}", flush=True)
-        import threading as _threading
-        _threading.Thread(target=_upload_backup, daemon=True).start()
+        if not args.no_oracle:
+            # Upload per-epoch backup to Oracle in background — no disk buildup
+            backup_path = backup_dir / f"checkpoint_epoch_{epoch:03d}.pth"
+            torch.save(ckpt_data, str(backup_path))
+            _bp = str(backup_path)
+            _bobj = f"{OCI_RUN_PREFIX}/backups/checkpoint_epoch_{epoch:03d}.pth"
+            def _upload_backup(p=_bp, obj=_bobj, lp=backup_path):
+                try:
+                    oracle_upload(p, obj)
+                    lp.unlink(missing_ok=True)
+                    print(f"  [backup] {lp.name} → Oracle done, local removed", flush=True)
+                except Exception as e:
+                    print(f"  [backup] WARNING: {lp.name} upload failed — {e}", flush=True)
+            import threading as _threading
+            _threading.Thread(target=_upload_backup, daemon=True).start()
 
-        # Upload last checkpoint to Oracle in background
-        oracle_upload_bg(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{epoch:03d}.pth")
-        oracle_upload_bg(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
+            # Upload last checkpoint to Oracle in background
+            oracle_upload_bg(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{epoch:03d}.pth")
+            oracle_upload_bg(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
 
         # Save best model whenever test accuracy improves
         if test_acc > best_val_acc:
@@ -665,11 +666,12 @@ def train(args):
                 },
                 str(out_path),
             )
-            print(f"  *** New best model — epoch {epoch} — test_acc={test_acc:.2f}% — uploading to Oracle ***")
-            new_oracle_model = f"{OCI_RUN_PREFIX}/best_epoch{epoch:03d}_{test_acc:.2f}pct.pth"
-            best_oracle_model = new_oracle_model
-            oracle_upload_bg(str(out_path), new_oracle_model)
-            oracle_upload_bg(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
+            print(f"  *** New best model — epoch {epoch} — test_acc={test_acc:.2f}% ***")
+            if not args.no_oracle:
+                new_oracle_model = f"{OCI_RUN_PREFIX}/best_epoch{epoch:03d}_{test_acc:.2f}pct.pth"
+                best_oracle_model = new_oracle_model
+                oracle_upload_bg(str(out_path), new_oracle_model)
+                oracle_upload_bg(str(out_path), f"{OCI_RUN_PREFIX}/best.pth")
 
     # ── Final uploads to Oracle ───────────────────────────────────────────────
     print(f"\n{'='*60}")
@@ -678,23 +680,25 @@ def train(args):
     print(f"  Prefix: {OCI_RUN_PREFIX}")
     print(f"{'='*60}")
 
-    if ckpt_path.exists():
-        try:
-            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{args.epochs:03d}.pth")
-            oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
-            print(f"  [oracle] last_epoch{args.epochs:03d}.pth uploaded.")
-        except Exception as e:
-            print(f"  [oracle] WARNING: final last upload failed — {e}")
+    if not args.no_oracle:
+        if ckpt_path.exists():
+            try:
+                oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last_epoch{args.epochs:03d}.pth")
+                oracle_upload(str(ckpt_path), f"{OCI_RUN_PREFIX}/last.pth")
+                print(f"  [oracle] last_epoch{args.epochs:03d}.pth uploaded.")
+            except Exception as e:
+                print(f"  [oracle] WARNING: final last upload failed — {e}")
 
-    if metrics_path.exists():
-        try:
-            oracle_upload(str(metrics_path), f"{OCI_RUN_PREFIX}/training_metrics.csv")
-            print(f"  [oracle] training_metrics.csv uploaded.")
-        except Exception as e:
-            print(f"  [oracle] WARNING: metrics upload failed — {e}")
+        if metrics_path.exists():
+            try:
+                oracle_upload(str(metrics_path), f"{OCI_RUN_PREFIX}/training_metrics.csv")
+                print(f"  [oracle] training_metrics.csv uploaded.")
+            except Exception as e:
+                print(f"  [oracle] WARNING: metrics upload failed — {e}")
 
-    print(f"\n  All done. Models at: oci://{OCI_BUCKET}/{OCI_RUN_PREFIX}/")
-    print(f"  best.pth  = highest val acc checkpoint")
+    print(f"\n  All done.")
+    print(f"  best.pth  = {out_path}")
+    print(f"  last.pth  = {ckpt_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -711,5 +715,7 @@ if __name__ == "__main__":
     parser.add_argument("--workers",         type=int,   default=4)
     parser.add_argument("--resume",          action="store_true")
     parser.add_argument("--report-every",   type=int,   default=5)
+    parser.add_argument("--no-oracle",      action="store_true",
+                        help="Skip all Oracle uploads (for local training)")
     args = parser.parse_args()
     train(args)
