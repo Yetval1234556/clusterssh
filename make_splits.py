@@ -43,13 +43,21 @@ def class_from_path(path: pathlib.Path) -> str:
 
     Falls back to the parent folder name when the last underscore segment
     is purely numeric (image IDs like _001) or the filename has no underscores.
+
+    For WBC data, folder names like WBC-Benign-001 or WBC-Malignant-Early-042
+    are collapsed to WBC-Benign / WBC-Malignant-Early / etc. by stripping the
+    trailing -NNN patient index.
     """
     stem      = path.stem                  # "4_7_400_ALL"
     parts     = stem.split("_")
     candidate = parts[-1]                  # "ALL"
     if candidate and any(c.isalpha() for c in candidate):
         return candidate
-    return path.parent.name                # fallback: folder name
+    folder = path.parent.name              # fallback: folder name
+    # Collapse WBC-Benign-001 → WBC-Benign, WBC-Malignant-Early-042 → WBC-Malignant-Early
+    import re as _re
+    folder = _re.sub(r'-\d+$', '', folder)
+    return folder
 
 SEP = "─" * 70
 

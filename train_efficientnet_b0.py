@@ -190,12 +190,19 @@ def class_from_path(path: Path) -> str:
 
     Falls back to parent folder name when the last underscore segment
     is purely numeric or the filename has no underscores.
+
+    For WBC data, folder names like WBC-Benign-001 or WBC-Malignant-Early-042
+    are collapsed to WBC-Benign / WBC-Malignant-Early / etc. by stripping the
+    trailing -NNN patient index.
     """
+    import re as _re
     parts     = path.stem.split("_")
     candidate = parts[-1]
     if candidate and any(c.isalpha() for c in candidate):
         return candidate
-    return path.parent.name
+    folder = path.parent.name
+    folder = _re.sub(r'-\d+$', '', folder)
+    return folder
 
 
 def load_txt_samples(txt_path: Path):
