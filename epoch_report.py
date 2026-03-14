@@ -163,7 +163,8 @@ class EpochReporter:
         print(c("cyan", metric_row("Best val acc",   f"{self._best_val_acc*100:>7.4f}%  (ep {self._best_epoch})",
                                    self._best_val_acc*100, "green")))
         if rec["lr"] is not None:
-            print(c("cyan", _row(f"  {'Learning rate':<28}  {c('yellow', f'{rec[\"lr\"]:.4e}')}")))
+            lr_str = f"{rec['lr']:.4e}"
+            print(c("cyan", _row(f"  {'Learning rate':<28}  {c('yellow', lr_str)}"))))
 
         # ── 3. LOSS TREND TABLE ────────────────────────────────────────────────
         if len(self.history) >= 2:
@@ -252,7 +253,8 @@ class EpochReporter:
             n_params = sum(p.numel() for p in pg["params"] if p.requires_grad)
             label = "Backbone (fine-tune)" if i == 0 else "Head (our layers)"
             print(c("cyan", _row(f"  Group {i} — {label}  ({n_params:,} params)")))
-            print(c("cyan", _row(f"    lr={c('yellow', f'{pg[\"lr\"]:.4e}')}   "
+            pg_lr = f"{pg['lr']:.4e}"
+            print(c("cyan", _row(f"    lr={c('yellow', pg_lr)}   "
                                  f"wd={pg.get('weight_decay','N/A'):.2e}   "
                                  f"betas={pg.get('betas','N/A')}   "
                                  f"eps={pg.get('eps',0):.2e}")))
@@ -315,8 +317,10 @@ class EpochReporter:
         # ── 9. MODEL HEALTH CHECK ─────────────────────────────────────────────
         print(c("cyan", _sec("  🏥  MODEL HEALTH CHECK")))
         print(c("cyan", _row(f"  {'Total parameters':<32}  {total_params:>14,}")))
-        print(c("cyan", _row(f"  {'Trainable (ours)':<32}  {c('green',f\"{total_trainable:>14,}\")}  ({100*total_trainable/total_params:.2f}%)")))
-        print(c("cyan", _row(f"  {'Frozen (DinoBloom-G)':<32}  {c('grey',f\"{total_frozen:>14,}\")}  ({100*total_frozen/total_params:.2f}%)")))
+        trainable_str = f"{total_trainable:>14,}"
+        print(c("cyan", _row(f"  {'Trainable (ours)':<32}  {c('green', trainable_str)}  ({100*total_trainable/total_params:.2f}%)")))
+        frozen_str = f"{total_frozen:>14,}"
+        print(c("cyan", _row(f"  {'Frozen (DinoBloom-G)':<32}  {c('grey', frozen_str)}  ({100*total_frozen/total_params:.2f}%)")))
 
         nan_l = [n for n,p in model.named_parameters() if p.data.isnan().any()]
         inf_l = [n for n,p in model.named_parameters() if p.data.isinf().any()]
